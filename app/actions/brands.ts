@@ -65,6 +65,12 @@ async function checkBrandLimit(userId: string): Promise<{ allowed: boolean; rema
   }
 
   const currentCount = count ?? 0;
+
+  // -1 means unlimited (agency/enterprise tiers)
+  if (limit < 0) {
+    return { allowed: true, remaining: Infinity, limit };
+  }
+
   const remaining = Math.max(0, limit - currentCount);
 
   return {
@@ -411,12 +417,13 @@ export async function getBrandLimitInfo(): Promise<ActionResponse<{ used: number
     }
 
     const limitInfo = await checkBrandLimit(user.id);
+    const unlimited = limitInfo.limit < 0;
 
     return {
       success: true,
       data: {
-        used: limitInfo.limit - limitInfo.remaining,
-        remaining: limitInfo.remaining,
+        used: unlimited ? 0 : limitInfo.limit - limitInfo.remaining,
+        remaining: unlimited ? -1 : limitInfo.remaining,
         limit: limitInfo.limit,
       },
     };
