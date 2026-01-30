@@ -19,6 +19,7 @@ export type SkeletonPreset =
   | "cards"
   | "products"
   | "personas"
+  | "audiences"
   | "creatives"
   | "list"
   | "table";
@@ -326,6 +327,126 @@ function CreativeSkeleton() {
   );
 }
 
+// Audience card skeleton
+function AudienceSkeleton() {
+  return (
+    <div className="skeleton-audience">
+      <div className="skeleton-content">
+        <div className="skeleton-line audience-name" />
+        <div className="skeleton-audience-row">
+          <div className="skeleton-avatar-mini" />
+          <div className="skeleton-avatar-mini" />
+          <div className="skeleton-line audience-personas" />
+        </div>
+        <div className="skeleton-audience-badges">
+          <div className="skeleton-badge" />
+          <div className="skeleton-badge" />
+          <div className="skeleton-badge" />
+          <div className="skeleton-badge" />
+          <div className="skeleton-badge" />
+          <div className="skeleton-badge" />
+        </div>
+        <div className="skeleton-line audience-size" />
+        <div className="skeleton-audience-footer">
+          <div className="skeleton-line audience-exports" />
+          <div className="skeleton-line audience-date" />
+        </div>
+      </div>
+      <style>{`
+        .skeleton-audience {
+          background: var(--color-surface);
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          border-radius: 14px;
+          overflow: hidden;
+        }
+        .skeleton-audience .skeleton-content {
+          padding: 1.25rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+        }
+        .skeleton-line.audience-name {
+          height: 20px;
+          width: 65%;
+          border-radius: 6px;
+          background: linear-gradient(90deg, rgba(255, 255, 255, 0.04) 25%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.04) 75%);
+          background-size: 200% 100%;
+          animation: shimmer 1.5s infinite;
+        }
+        .skeleton-audience-row {
+          display: flex;
+          align-items: center;
+          gap: 0.375rem;
+        }
+        .skeleton-avatar-mini {
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
+          background: linear-gradient(90deg, rgba(139, 92, 246, 0.05) 25%, rgba(139, 92, 246, 0.1) 50%, rgba(139, 92, 246, 0.05) 75%);
+          background-size: 200% 100%;
+          animation: shimmer 1.5s infinite;
+          flex-shrink: 0;
+        }
+        .skeleton-avatar-mini:nth-child(2) {
+          margin-left: -6px;
+        }
+        .skeleton-line.audience-personas {
+          height: 14px;
+          width: 80px;
+          margin-left: 0.375rem;
+          border-radius: 6px;
+          background: linear-gradient(90deg, rgba(255, 255, 255, 0.04) 25%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.04) 75%);
+          background-size: 200% 100%;
+          animation: shimmer 1.5s infinite;
+        }
+        .skeleton-audience-badges {
+          display: flex;
+          align-items: center;
+          gap: 0.375rem;
+        }
+        .skeleton-badge {
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+          background: linear-gradient(90deg, rgba(255, 255, 255, 0.04) 25%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.04) 75%);
+          background-size: 200% 100%;
+          animation: shimmer 1.5s infinite;
+        }
+        .skeleton-line.audience-size {
+          height: 14px;
+          width: 120px;
+          border-radius: 6px;
+          background: linear-gradient(90deg, rgba(6, 182, 212, 0.05) 25%, rgba(6, 182, 212, 0.1) 50%, rgba(6, 182, 212, 0.05) 75%);
+          background-size: 200% 100%;
+          animation: shimmer 1.5s infinite;
+        }
+        .skeleton-audience-footer {
+          display: flex;
+          justify-content: space-between;
+          padding-top: 0.5rem;
+          border-top: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        .skeleton-line.audience-exports {
+          height: 12px;
+          width: 60px;
+          border-radius: 6px;
+          background: linear-gradient(90deg, rgba(255, 255, 255, 0.04) 25%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.04) 75%);
+          background-size: 200% 100%;
+          animation: shimmer 1.5s infinite;
+        }
+        .skeleton-line.audience-date {
+          height: 12px;
+          width: 70px;
+          border-radius: 6px;
+          background: linear-gradient(90deg, rgba(255, 255, 255, 0.04) 25%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.04) 75%);
+          background-size: 200% 100%;
+          animation: shimmer 1.5s infinite;
+        }
+      `}</style>
+    </div>
+  );
+}
+
 // List item skeleton
 function ListItemSkeleton() {
   return (
@@ -421,6 +542,8 @@ function getSkeletonComponent(preset: SkeletonPreset) {
       return ProductSkeleton;
     case "personas":
       return PersonaSkeleton;
+    case "audiences":
+      return AudienceSkeleton;
     case "creatives":
       return CreativeSkeleton;
     case "list":
@@ -440,6 +563,8 @@ function getGridClass(preset: SkeletonPreset): string {
       return "skeleton-grid-products";
     case "personas":
       return "skeleton-grid-personas";
+    case "audiences":
+      return "skeleton-grid-audiences";
     case "creatives":
       return "skeleton-grid-creatives";
     case "list":
@@ -532,6 +657,11 @@ export default function LoadingState({
           grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
           gap: 1.5rem;
         }
+        .skeleton-grid-audiences {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+          gap: 1.25rem;
+        }
         .skeleton-grid-creatives {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -553,7 +683,8 @@ export default function LoadingState({
         @media (max-width: 640px) {
           .skeleton-grid,
           .skeleton-grid-products,
-          .skeleton-grid-personas {
+          .skeleton-grid-personas,
+          .skeleton-grid-audiences {
             grid-template-columns: 1fr;
           }
           .skeleton-grid-creatives {
