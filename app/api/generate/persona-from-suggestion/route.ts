@@ -529,6 +529,12 @@ Remember: Return ONLY the JSON object, no other text.`;
       ? { censusValidation: censusResult }
       : {};
 
+    // Auto-determine validation status based on scores
+    const relevance = suggestion.relevanceScore ?? 0;
+    const censusRealism = censusResult?.locationFound ? (censusResult.realismScore ?? 0) : 0;
+    const autoValidationStatus =
+      relevance >= 0.5 && censusRealism >= 50 ? "validated" : "pending";
+
     // If portrait was generated, update the persona with the photo URL + census data
     if (portraitResult.success && result.data) {
       const existingParams = (normalizedInput.generationParams ?? {}) as Record<string, unknown>;
@@ -536,6 +542,7 @@ Remember: Return ONLY the JSON object, no other text.`;
         photoUrl: portraitResult.photoUrl,
         photoPrompt: portraitResult.photoPrompt,
         generationParams: { ...existingParams, ...censusParams },
+        validationStatus: autoValidationStatus,
       });
 
       if (updateResult.success) {
@@ -550,6 +557,7 @@ Remember: Return ONLY the JSON object, no other text.`;
       const existingParams = (normalizedInput.generationParams ?? {}) as Record<string, unknown>;
       await updatePersona(result.data.id, {
         generationParams: { ...existingParams, ...censusParams },
+        validationStatus: autoValidationStatus,
       }).catch((err) => console.error("Failed to save census data:", err));
     }
 
