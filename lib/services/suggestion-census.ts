@@ -11,7 +11,6 @@
  */
 
 import { validateAgainstCensus } from "@/lib/services/census-validator";
-import type { PersonaSuggestion } from "@/app/api/generate/persona-suggestions/route";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -23,6 +22,32 @@ export const MAX_RETRIES_PER_SLOT = 3;
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
+
+export interface PersonaSuggestion {
+  name: string;
+  archetype: string;
+  headline: string;
+  demographics: {
+    age: number;
+    gender: string;
+    location: string;
+    income: string;
+    occupation: string;
+  };
+  psychographics: {
+    values: string[];
+    motivations: string[];
+    painPoints: string[];
+    aspirations: string[];
+  };
+  behaviors: {
+    purchaseDrivers: string[];
+    preferredChannels: string[];
+    decisionStyle: string;
+  };
+  relevanceScore: number;
+  reasoning: string;
+}
 
 export interface ValidatedSuggestion extends PersonaSuggestion {
   censusScore: number;
