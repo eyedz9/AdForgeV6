@@ -4,7 +4,7 @@
  * Creates audience targeting from persona data by translating
  * persona attributes to platform-specific targeting parameters.
  *
- * POST /api/generate/audience - Create audience from persona
+ * POST /api/generate/audience - Create audience from one or more personas
  * GET /api/generate/audience - List audiences for a brand/persona
  */
 
@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import {
   translatePersonaToAudiences,
+  translateMultiplePersonasToAudiences,
   type PersonaForTranslation,
 } from "@/lib/services/audience-translator";
 import type {
@@ -33,25 +34,9 @@ import type {
  * Request body schema for POST
  */
 interface CreateAudienceRequest {
-  persona_id: string;
-}
-
-/**
- * Response type for created audience
- */
-interface AudienceResponse {
-  id: string;
-  name: string;
-  persona_id: string;
-  brand_id: string;
-  meta_targeting: Record<string, unknown>;
-  google_targeting: Record<string, unknown>;
-  linkedin_targeting: Record<string, unknown>;
-  tiktok_targeting: Record<string, unknown>;
-  pinterest_targeting: Record<string, unknown>;
-  snapchat_targeting: Record<string, unknown>;
-  size_estimates: Record<string, unknown>;
-  created_at: string;
+  persona_id?: string;
+  persona_ids?: string[];
+  name?: string;
 }
 
 /**
@@ -70,105 +55,99 @@ function parsePersonaForTranslation(persona: Persona): PersonaForTranslation {
 }
 
 /**
- * POST handler - Create audience from persona
+ * POST handler - Create audience from one or more personas
  */
 export async function POST(request: NextRequest) {
   try {
-    // Parse request body
     const body = (await request.json()) as CreateAudienceRequest;
 
-    // Validate required fields
-    if (!body.persona_id) {
+    // Support both single persona_id and array persona_ids
+    const personaIds: string[] = body.persona_ids
+      ? body.persona_ids
+      : body.persona_id
+        ? [body.persona_id]
+        : [];
+
+    if (personaIds.length === 0) {
       return NextResponse.json(
-        { error: "persona_id is required" },
+        { error: "persona_id or persona_ids is required" },
         { status: 400 }
       );
     }
 
-    // Get Supabase client
     const supabase = await createClient();
 
-    // Get current user
     const {
       data: { user },
       error: authError,
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Fetch the persona
-    const { data: personaData, error: personaError } = await supabase
+    // Fetch all specified personas
+    const { data: personasData, error: personaError } = await supabase
       .from("personas")
       .select("*")
-      .eq("id", body.persona_id)
-      .single();
+      .in("id", personaIds);
 
-    if (personaError || !personaData) {
+    if (personaError || !personasData || personasData.length !== personaIds.length) {
       return NextResponse.json(
-        { error: "Persona not found" },
+        { error: "One or more personas not found" },
         { status: 404 }
       );
     }
 
-    const persona = personaData as Persona;
+    const personas = personasData as Persona[];
 
-    // Verify user owns the brand that owns this persona
+    // Verify all personas belong to the same brand
+    const brandIds = [...new Set(personas.map((p) => p.brand_id))];
+    if (brandIds.length !== 1) {
+      return NextResponse.json(
+        { error: "All personas must belong to the same brand" },
+        { status: 400 }
+      );
+    }
+
+    const brandId = brandIds[0];
+
+    // Verify user owns the brand
     const { data: brandData, error: brandError } = await supabase
       .from("brands")
       .select("id, user_id, name")
-      .eq("id", persona.brand_id)
+      .eq("id", brandId)
       .single();
 
     if (brandError || !brandData) {
-      return NextResponse.json(
-        { error: "Brand not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Brand not found" }, { status: 404 });
     }
 
     const brand = brandData as { id: string; user_id: string; name: string };
     if (brand.user_id !== user.id) {
       return NextResponse.json(
-        { error: "Access denied - you do not own this persona" },
+        { error: "Access denied - you do not own these personas" },
         { status: 403 }
       );
     }
 
-    // Check if an audience already exists for this persona
-    const { data: existingAudienceData } = await supabase
-      .from("audiences")
-      .select("id")
-      .eq("persona_id", body.persona_id)
-      .single();
+    // Translate personas to targeting
+    const personasForTranslation = personas.map(parsePersonaForTranslation);
+    const audienceTargeting =
+      personasForTranslation.length === 1
+        ? await translatePersonaToAudiences(personasForTranslation[0])
+        : await translateMultiplePersonasToAudiences(personasForTranslation);
 
-    if (existingAudienceData) {
-      const existingAudience = existingAudienceData as { id: string };
-      return NextResponse.json(
-        {
-          error: "An audience already exists for this persona",
-          existing_audience_id: existingAudience.id,
-        },
-        { status: 409 }
-      );
-    }
+    // Generate audience name
+    const audienceName =
+      body.name ||
+      (personas.length === 1
+        ? `${personas[0].name} - Audience`
+        : `Combined Audience (${personas.length} personas)`);
 
-    // Parse persona data for translation
-    const personaForTranslation = parsePersonaForTranslation(persona);
-
-    // Translate persona to all platform targeting
-    const audienceTargeting = await translatePersonaToAudiences(personaForTranslation);
-
-    // Generate audience name from persona name
-    const audienceName = `${persona.name} - Audience`;
-
-    // Build audience insert object
+    // Build audience insert
     const audienceInsert: AudienceInsert = {
-      persona_id: body.persona_id,
+      persona_id: null,
       brand_id: brand.id,
       name: audienceName,
       meta_targeting: audienceTargeting.meta as unknown as Json,
@@ -181,7 +160,7 @@ export async function POST(request: NextRequest) {
       export_count: 0,
     };
 
-    // Save audience to database
+    // Save audience
     const { data: savedAudience, error: insertError } = await supabase
       .from("audiences")
       .insert(audienceInsert as never)
@@ -198,25 +177,42 @@ export async function POST(request: NextRequest) {
 
     const typedAudience = savedAudience as Audience;
 
-    // Build response
-    const response: AudienceResponse = {
-      id: typedAudience.id,
-      name: typedAudience.name,
-      persona_id: typedAudience.persona_id,
-      brand_id: typedAudience.brand_id,
-      meta_targeting: typedAudience.meta_targeting as Record<string, unknown>,
-      google_targeting: typedAudience.google_targeting as Record<string, unknown>,
-      linkedin_targeting: typedAudience.linkedin_targeting as Record<string, unknown>,
-      tiktok_targeting: typedAudience.tiktok_targeting as Record<string, unknown>,
-      pinterest_targeting: typedAudience.pinterest_targeting as Record<string, unknown>,
-      snapchat_targeting: typedAudience.snapchat_targeting as Record<string, unknown>,
-      size_estimates: typedAudience.size_estimates as Record<string, unknown>,
-      created_at: typedAudience.created_at,
-    };
+    // Insert junction table rows
+    const junctionRows = personaIds.map((pid) => ({
+      audience_id: typedAudience.id,
+      persona_id: pid,
+    }));
+
+    const { error: junctionError } = await supabase
+      .from("audience_personas")
+      .insert(junctionRows as never[]);
+
+    if (junctionError) {
+      console.error("Error inserting audience_personas:", junctionError);
+      // Clean up
+      await supabase.from("audiences").delete().eq("id", typedAudience.id);
+      return NextResponse.json(
+        { error: "Failed to link personas to audience" },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
-      audience: response,
+      audience: {
+        id: typedAudience.id,
+        name: typedAudience.name,
+        persona_id: typedAudience.persona_id,
+        brand_id: typedAudience.brand_id,
+        meta_targeting: typedAudience.meta_targeting as Record<string, unknown>,
+        google_targeting: typedAudience.google_targeting as Record<string, unknown>,
+        linkedin_targeting: typedAudience.linkedin_targeting as Record<string, unknown>,
+        tiktok_targeting: typedAudience.tiktok_targeting as Record<string, unknown>,
+        pinterest_targeting: typedAudience.pinterest_targeting as Record<string, unknown>,
+        snapchat_targeting: typedAudience.snapchat_targeting as Record<string, unknown>,
+        size_estimates: typedAudience.size_estimates as Record<string, unknown>,
+        created_at: typedAudience.created_at,
+      },
     });
   } catch (error) {
     console.error("Error creating audience:", error);
@@ -241,7 +237,6 @@ export async function GET(request: NextRequest) {
     const brandId = searchParams.get("brand_id");
     const personaId = searchParams.get("persona_id");
 
-    // At least one filter is required
     if (!brandId && !personaId) {
       return NextResponse.json(
         { error: "Either brand_id or persona_id query parameter is required" },
@@ -251,7 +246,6 @@ export async function GET(request: NextRequest) {
 
     const supabase = await createClient();
 
-    // Get current user
     const {
       data: { user },
       error: authError,
@@ -261,56 +255,32 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Build query
+    // Build query with junction table
     let query = supabase.from("audiences").select(`
       *,
-      personas (
-        id,
-        name,
-        photo_url
+      audience_personas (
+        persona_id,
+        personas (
+          id,
+          name,
+          photo_url
+        )
       )
     `);
 
     if (personaId) {
-      // If filtering by persona, verify ownership through persona -> brand -> user
-      const { data: personaData, error: personaError } = await supabase
-        .from("personas")
-        .select("brand_id")
-        .eq("id", personaId)
-        .single();
+      // Filter by persona through junction table
+      const { data: junctionData } = await supabase
+        .from("audience_personas")
+        .select("audience_id")
+        .eq("persona_id", personaId);
 
-      if (personaError || !personaData) {
-        return NextResponse.json(
-          { error: "Persona not found" },
-          { status: 404 }
-        );
+      if (!junctionData || junctionData.length === 0) {
+        return NextResponse.json({ audiences: [] });
       }
 
-      const persona = personaData as { brand_id: string };
-
-      // Verify user owns the brand
-      const { data: brandData, error: brandError } = await supabase
-        .from("brands")
-        .select("user_id")
-        .eq("id", persona.brand_id)
-        .single();
-
-      if (brandError || !brandData) {
-        return NextResponse.json(
-          { error: "Brand not found" },
-          { status: 404 }
-        );
-      }
-
-      const personaBrand = brandData as { user_id: string };
-      if (personaBrand.user_id !== user.id) {
-        return NextResponse.json(
-          { error: "Access denied" },
-          { status: 403 }
-        );
-      }
-
-      query = query.eq("persona_id", personaId);
+      const audienceIds = (junctionData as Array<{ audience_id: string }>).map((j) => j.audience_id);
+      query = query.in("id", audienceIds);
     } else if (brandId) {
       // Verify user owns the brand
       const { data: brand, error: brandError } = await supabase
@@ -330,7 +300,6 @@ export async function GET(request: NextRequest) {
       query = query.eq("brand_id", brandId);
     }
 
-    // Execute query with ordering
     const { data: audiences, error: audiencesError } = await query.order(
       "created_at",
       { ascending: false }
