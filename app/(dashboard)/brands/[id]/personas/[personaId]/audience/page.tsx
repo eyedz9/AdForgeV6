@@ -4,7 +4,7 @@
  * Displays audience targeting by platform with:
  * - Tabbed view for each platform (Meta, Google, LinkedIn, TikTok, Pinterest, Snapchat)
  * - Platform-specific targeting parameters
- * - Export button with format selector (JSON, CSV)
+ * - Export button to download all platforms as a single CSV (Platform column for filtering)
  * - Download functionality with export_count tracking
  */
 
@@ -625,193 +625,36 @@ function SnapchatTargetingDisplay({ targeting }: { targeting: SnapchatTargeting 
   );
 }
 
-// Export modal component
-function ExportModal({
-  platform,
-  onExport,
-  onClose,
-  isExporting,
-}: {
-  platform: PlatformId;
-  onExport: (format: "json" | "csv") => void;
-  onClose: () => void;
-  isExporting: boolean;
-}) {
-  const platformName = PLATFORMS.find((p) => p.id === platform)?.name || platform;
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <h3 className="modal-title">Export {platformName} Targeting</h3>
-        <p className="modal-description">
-          Choose the export format for your audience targeting data.
-        </p>
-
-        <div className="export-options">
-          <button
-            className="export-option"
-            onClick={() => onExport("json")}
-            disabled={isExporting}
-          >
-            <div className="option-icon">
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
-                <polyline points="14,2 14,8 20,8" />
-                <path d="M8 13h2" />
-                <path d="M8 17h2" />
-                <path d="M14 13h2" />
-                <path d="M14 17h2" />
-              </svg>
-            </div>
-            <div className="option-details">
-              <span className="option-name">JSON Format</span>
-              <span className="option-desc">
-                Structured data for API integration
-              </span>
-            </div>
-          </button>
-
-          <button
-            className="export-option"
-            onClick={() => onExport("csv")}
-            disabled={isExporting}
-          >
-            <div className="option-icon">
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
-                <polyline points="14,2 14,8 20,8" />
-                <line x1="8" y1="13" x2="16" y2="13" />
-                <line x1="8" y1="17" x2="16" y2="17" />
-              </svg>
-            </div>
-            <div className="option-details">
-              <span className="option-name">CSV Format</span>
-              <span className="option-desc">
-                Spreadsheet-compatible data export
-              </span>
-            </div>
-          </button>
-        </div>
-
-        <button className="cancel-btn" onClick={onClose} disabled={isExporting}>
-          Cancel
-        </button>
-
-        <style>{`
-          .modal-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-            padding: 1rem;
-          }
-          .modal-content {
-            background: white;
-            border-radius: 12px;
-            padding: 1.5rem;
-            max-width: 400px;
-            width: 100%;
-          }
-          .modal-title {
-            font-size: 1.125rem;
-            font-weight: 600;
-            color: #111827;
-            margin: 0 0 0.5rem;
-          }
-          .modal-description {
-            font-size: 0.875rem;
-            color: #6b7280;
-            margin: 0 0 1.5rem;
-          }
-          .export-options {
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-            margin-bottom: 1rem;
-          }
-          .export-option {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            padding: 1rem;
-            background: #f9fafb;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.15s;
-            text-align: left;
-          }
-          .export-option:hover:not(:disabled) {
-            background: #f3f4f6;
-            border-color: #d1d5db;
-          }
-          .export-option:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-          }
-          .option-icon {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 40px;
-            height: 40px;
-            background: white;
-            border-radius: 8px;
-            color: #6366f1;
-          }
-          .option-details {
-            display: flex;
-            flex-direction: column;
-          }
-          .option-name {
-            font-size: 0.9375rem;
-            font-weight: 500;
-            color: #111827;
-          }
-          .option-desc {
-            font-size: 0.8125rem;
-            color: #6b7280;
-          }
-          .cancel-btn {
-            width: 100%;
-            padding: 0.625rem 1rem;
-            background: white;
-            border: 1px solid #d1d5db;
-            border-radius: 8px;
-            font-size: 0.9375rem;
-            font-weight: 500;
-            color: #374151;
-            cursor: pointer;
-            transition: background 0.15s;
-          }
-          .cancel-btn:hover:not(:disabled) {
-            background: #f3f4f6;
-          }
-          .cancel-btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-          }
-        `}</style>
-      </div>
-    </div>
-  );
+// Flatten a targeting object into rows with a platform prefix
+function flattenTargeting(
+  obj: Record<string, unknown>,
+  platformName: string,
+  prefix = ""
+): string[][] {
+  const rows: string[][] = [];
+  for (const [key, value] of Object.entries(obj)) {
+    const fullKey = prefix ? `${prefix}.${key}` : key;
+    if (Array.isArray(value)) {
+      if (value.length > 0 && typeof value[0] === "object") {
+        rows.push([
+          platformName,
+          fullKey,
+          value
+            .map((v) => (v as { name?: string }).name || JSON.stringify(v))
+            .join("; "),
+        ]);
+      } else {
+        rows.push([platformName, fullKey, value.join("; ")]);
+      }
+    } else if (typeof value === "object" && value !== null) {
+      rows.push(
+        ...flattenTargeting(value as Record<string, unknown>, platformName, fullKey)
+      );
+    } else {
+      rows.push([platformName, fullKey, String(value)]);
+    }
+  }
+  return rows;
 }
 
 // Main page component
@@ -828,7 +671,6 @@ export default function AudienceDetailPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activePlatform, setActivePlatform] = useState<PlatformId>("meta");
-  const [showExportModal, setShowExportModal] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isBuilding, setIsBuilding] = useState(false);
 
@@ -913,83 +755,48 @@ export default function AudienceDetailPage({
     setIsBuilding(false);
   };
 
-  // Export targeting data
-  const handleExport = async (format: "json" | "csv") => {
+  // Export all platform targeting data to CSV
+  const handleExport = async () => {
     if (!audience) return;
 
     setIsExporting(true);
 
     try {
-      // Get the targeting data for the selected platform
-      const targetingData = audience[`${activePlatform}_targeting` as keyof ParsedAudience];
+      const rows: string[][] = [["Platform", "Parameter", "Value"]];
 
-      let content: string;
-      let mimeType: string;
-      let extension: string;
-
-      if (format === "json") {
-        content = JSON.stringify(targetingData, null, 2);
-        mimeType = "application/json";
-        extension = "json";
-      } else {
-        // Convert to CSV
-        const rows: string[][] = [["Parameter", "Value"]];
-
-        const flattenObject = (obj: Record<string, unknown>, prefix = "") => {
-          for (const [key, value] of Object.entries(obj)) {
-            const fullKey = prefix ? `${prefix}.${key}` : key;
-            if (Array.isArray(value)) {
-              if (value.length > 0 && typeof value[0] === "object") {
-                rows.push([
-                  fullKey,
-                  value.map((v) => (v as { name?: string }).name || JSON.stringify(v)).join("; "),
-                ]);
-              } else {
-                rows.push([fullKey, value.join("; ")]);
-              }
-            } else if (typeof value === "object" && value !== null) {
-              flattenObject(value as Record<string, unknown>, fullKey);
-            } else {
-              rows.push([fullKey, String(value)]);
-            }
-          }
-        };
-
-        flattenObject(targetingData as Record<string, unknown>);
-        content = rows.map((row) => row.map((cell) => `"${cell}"`).join(",")).join("\n");
-        mimeType = "text/csv";
-        extension = "csv";
+      for (const platform of PLATFORMS) {
+        const targetingData = audience[
+          `${platform.id}_targeting` as keyof ParsedAudience
+        ] as Record<string, unknown> | null;
+        if (!targetingData) continue;
+        rows.push(...flattenTargeting(targetingData, platform.name));
       }
 
-      // Create download
-      const blob = new Blob([content], { type: mimeType });
+      const csvContent = rows
+        .map((row) =>
+          row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")
+        )
+        .join("\n");
+
+      const blob = new Blob([csvContent], { type: "text/csv" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${audience.name.toLowerCase().replace(/\s+/g, "-")}-${activePlatform}.${extension}`;
+      a.download = `${audience.name.toLowerCase().replace(/\s+/g, "-")}-all-platforms.csv`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      // Update export count
-      try {
-        // We can make a PATCH request to update the export count
-        // For now, we'll update it locally
-        setAudience((prev) =>
-          prev
-            ? {
-                ...prev,
-                export_count: prev.export_count + 1,
-                last_exported_at: new Date().toISOString(),
-              }
-            : null
-        );
-      } catch (err) {
-        console.error("Error updating export count:", err);
-      }
-
-      setShowExportModal(false);
+      setAudience((prev) =>
+        prev
+          ? {
+              ...prev,
+              export_count: prev.export_count + 1,
+              last_exported_at: new Date().toISOString(),
+            }
+          : null
+      );
     } catch (err) {
       console.error("Error exporting:", err);
       setError("Failed to export targeting data");
@@ -1367,21 +1174,31 @@ export default function AudienceDetailPage({
           </div>
           <button
             className="export-btn"
-            onClick={() => setShowExportModal(true)}
+            onClick={handleExport}
+            disabled={isExporting}
           >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
-            Export
+            {isExporting ? (
+              <>
+                <span className="spinner" />
+                Exporting...
+              </>
+            ) : (
+              <>
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                Export CSV
+              </>
+            )}
           </button>
         </div>
       </header>
@@ -1424,16 +1241,6 @@ export default function AudienceDetailPage({
 
       {/* Targeting Content */}
       <div className="targeting-content">{renderPlatformTargeting()}</div>
-
-      {/* Export Modal */}
-      {showExportModal && (
-        <ExportModal
-          platform={activePlatform}
-          onExport={handleExport}
-          onClose={() => setShowExportModal(false)}
-          isExporting={isExporting}
-        />
-      )}
 
       {error && (
         <div className="toast-error">
@@ -1508,8 +1315,20 @@ export default function AudienceDetailPage({
           cursor: pointer;
           transition: background 0.15s;
         }
-        .export-btn:hover {
+        .export-btn:hover:not(:disabled) {
           background: #4f46e5;
+        }
+        .export-btn:disabled {
+          opacity: 0.7;
+          cursor: not-allowed;
+        }
+        .export-btn .spinner {
+          width: 16px;
+          height: 16px;
+          border: 2px solid rgba(255, 255, 255, 0.3);
+          border-top-color: white;
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
         }
 
         /* Platform Tabs */
