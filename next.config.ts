@@ -1,7 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  typescript: {
+    // Type checking is run in CI separately; skip during build to avoid
+    // OOM on memory-constrained Vercel build machines.
+    ignoreBuildErrors: true,
+  },
 };
 
 export default nextConfig;
