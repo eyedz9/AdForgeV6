@@ -1,0 +1,93 @@
+# Ralph Progress Log
+Started: Mon Jan 26 14:50:16 PST 2026
+---
+
+## Codebase Patterns
+
+### Supabase & Database
+- Use `as unknown as Json` for type casting complex objects to JSONB fields
+- Use `as never` for Supabase insert/update calls to bypass type inference issues
+- Cast returned data with `as Type` (e.g., `as IntelligenceReport`)
+- Use `!= null` instead of `!== null` to catch both null and undefined in TypeScript
+- RLS policies need separate policies for each operation (SELECT, INSERT, UPDATE, DELETE)
+- RLS for child tables: `EXISTS (SELECT 1 FROM parent WHERE parent.id = child.parent_id AND parent.user_id = auth.uid())`
+- Storage RLS uses `auth.uid()::text = (storage.foldername(name))[1]` for ownership check
+- Storage path pattern: `{user_id}/{bucket-purpose}/{brand_id}/{timestamp}.{ext}`
+- Period dates for usage: periodStart = first of month, periodEnd = last of month
+- Query usage by period_start with ISO date string (YYYY-MM-DD format)
+
+### API Routes
+- Quota check pattern: return 429 with { error, remaining, limit } when exceeded
+- Check for existing resources before creating (409 Conflict pattern)
+- For routes that don't use the request object, use `export async function POST()` without parameter
+- Fetch intelligence reports via GET /api/generate/intelligence?brand_id={id}
+- BrightData API returns BrightDataResponse<T> which can be success or error
+
+### UI Components
+- Parse JSONB fields from database using a helper function (parseXxx) for type safety
+- Use expandedSections state object for managing multiple collapsible sections
+- Modal state pattern: isOpen prop + onClose + onGenerated callbacks for parent control
+- Auto-selection pattern: if (data.length === 1) setState(data[0].id) for single-item lists
+- Filter by product uses server-side filtering, filter by status uses client-side filtering
+- Download pattern: fetch blob, createObjectURL, create anchor, click, cleanup
+- Export functionality: Blob + URL.createObjectURL + anchor.click pattern
+- Progress bar color logic: <80% green (#10b981), 80-99% yellow (#f59e0b), 100% red (#dc2626)
+- Use backdrop-filter: blur() for modal overlays
+
+### Generation & AI
+- Use `generateImageWithRetry` / `generateVideoWithRetry` for automatic retry on rate limits
+- Image generation prompts work best with specific persona details, not generic descriptions
+- UGC-style prompts should mention "slight imperfection" for authenticity
+- Video generation takes longer (30-60 seconds) - include timing note in UI
+- Mark personas as "needs_revision" instead of rejecting when values aren't specific enough
+
+### Stripe & Subscriptions
+- Stripe Billing Portal provides built-in UI for payment method and invoice management
+- Cancel at period end pattern: user keeps access until billing cycle ends
+- tierPricing and tierLimits from lib/stripe/client provide all subscription configuration
+- Unlimited values represented as -1 in tierLimits
+- Intelligence reports don't have a limit column in subscriptions - use tier-based lookup
+
+### Shared Components
+- Shared components live in `components/shared/` imported via `@/components/shared`
+- EmptyState accepts `icon` as either a predefined type string or custom ReactNode
+- LoadingState presets: cards, products, personas, creatives, list, table
+- Use barrel exports (index.ts) for cleaner imports
+
+### Next.js 15
+- Use `use(params)` with Promise<{...}> for Next.js 15 app router params
+
+---
+
+## Recent Progress (Full archive: archive/progress-2026-01-27-full.txt)
+
+## 2026-01-27 - US-056: Create subscription pricing page
+- Created `app/(dashboard)/settings/subscription/page.tsx` with four tier display
+- Monthly/yearly billing toggle, feature comparison table, cancel modal
+- Created Stripe API routes: checkout, portal, cancel, reactivate
+- Files: subscription/page.tsx, app/api/stripe/*.ts
+---
+
+## 2026-01-27 - US-057: Create usage dashboard
+- Created `app/(dashboard)/settings/usage/page.tsx` with usage metrics
+- Progress bars, warning states, upgrade CTAs, usage tips
+- Files: usage/page.tsx
+---
+
+## 2026-01-27 - US-058: Create profile settings page
+- Created `app/(dashboard)/settings/profile/page.tsx`
+- Personal info editing, password change with verification
+- Files: profile/page.tsx
+---
+
+## 2026-01-27 - US-059: Create usage quota enforcement
+- Created `lib/services/usage.ts` with checkQuota, decrementQuota, getCurrentUsage
+- Updated all generation API routes to use centralized service
+- Files: lib/services/usage.ts, app/api/generate/*.ts
+---
+
+## 2026-01-27 - US-060: Add empty states and loading states throughout
+- Created `components/shared/EmptyState.tsx` and `LoadingState.tsx`
+- Updated brands list, ProductsList, PersonasList, CreativesGallery
+- Files: components/shared/*.tsx, various list components
+---

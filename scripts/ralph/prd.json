@@ -1,0 +1,459 @@
+{
+  "project": "AdForge",
+  "branchName": "ralph/admin-dashboard",
+  "description": "Admin Dashboard - Full platform oversight with user management, content moderation, billing oversight, analytics, and real-time monitoring",
+  "userStories": [
+    {
+      "id": "US-100",
+      "title": "Create user_profiles table with admin role system",
+      "description": "As a developer, I need a user_profiles table with a role column so that admin access can be determined and enforced at the database level.",
+      "acceptanceCriteria": [
+        "Create user_profiles table with columns: id (UUID, references auth.users), role (text, check constraint 'user' or 'admin', default 'user'), disabled_at (timestamptz, nullable), created_at (timestamptz), updated_at (timestamptz)",
+        "Create updated_at trigger on user_profiles (same pattern as other tables)",
+        "Create RLS policies: users can SELECT their own profile row; service role bypasses all RLS",
+        "Create a database trigger function that auto-inserts a user_profiles row with role='user' when a new auth.users entry is created",
+        "Insert admin profile row for jason.solomons@eyedz9.com by looking up their auth.users id",
+        "Migration runs successfully via supabase migration apply",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-101",
+      "title": "Create audit_logs and system_settings tables",
+      "description": "As a developer, I need audit_logs and system_settings tables so that admin actions are tracked and platform settings are configurable.",
+      "acceptanceCriteria": [
+        "Create audit_logs table: id (UUID), actor_id (UUID, references auth.users), target_type (text), target_id (text), action (text), details (JSONB), ip_address (text, nullable), created_at (timestamptz default now())",
+        "Create index on audit_logs(created_at DESC) for efficient querying",
+        "Create index on audit_logs(actor_id) for filtering by admin",
+        "Create index on audit_logs(target_type, target_id) for filtering by target",
+        "Create system_settings table: key (text primary key), value (JSONB), updated_at (timestamptz), updated_by (UUID, references auth.users, nullable)",
+        "Insert default system_settings rows: default_trial_days=14, maintenance_mode=false, registration_enabled=true",
+        "RLS on audit_logs: only service role can INSERT/SELECT (no user access)",
+        "RLS on system_settings: users can SELECT; only service role can INSERT/UPDATE",
+        "Migration runs successfully",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-102",
+      "title": "Add moderation columns to content tables",
+      "description": "As a developer, I need moderation_status and moderation_notes columns on brands, personas, and creatives tables so that content can be moderated by admins.",
+      "acceptanceCriteria": [
+        "Add moderation_status column (text, default 'active', check constraint: 'active','flagged','disabled','deleted') to brands table",
+        "Add moderation_notes column (text, nullable) to brands table",
+        "Add moderation_status and moderation_notes columns to personas table (same definition)",
+        "Add moderation_status and moderation_notes columns to creatives table (same definition)",
+        "Create index on brands(moderation_status) for filtered queries",
+        "Create index on personas(moderation_status) for filtered queries",
+        "Create index on creatives(moderation_status) for filtered queries",
+        "Existing RLS policies continue to work (new columns are just additional data)",
+        "Migration runs successfully",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-103",
+      "title": "Create admin Supabase client and auth utilities",
+      "description": "As a developer, I need server-side utilities to create an admin Supabase client (service role) and check admin status so that admin routes are protected.",
+      "acceptanceCriteria": [
+        "Create lib/supabase/admin.ts with createAdminClient() that uses SUPABASE_SERVICE_ROLE_KEY to create a Supabase client that bypasses RLS",
+        "Create lib/auth/admin.ts with isAdmin(userId) function that queries user_profiles.role using admin client and returns boolean",
+        "Create lib/auth/admin.ts with requireAdmin() function that gets current user via server supabase client, checks admin role via isAdmin(), and throws/returns 403 if not admin",
+        "Create lib/auth/admin.ts with createAuditLog(actorId, targetType, targetId, action, details) helper that inserts into audit_logs table",
+        "All functions are properly typed with TypeScript",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-104",
+      "title": "Create admin layout shell and navigation",
+      "description": "As an admin, I want a dedicated admin layout with sidebar navigation so I can access all admin features from a consistent shell.",
+      "acceptanceCriteria": [
+        "Create app/(admin)/layout.tsx as server component with export const dynamic = 'force-dynamic'",
+        "Create app/(admin)/AdminShell.tsx as client component with sidebar navigation",
+        "Sidebar contains nav links: Dashboard (/admin), Users (/admin/users), Content (/admin/content), Subscriptions (/admin/subscriptions), Analytics (/admin/analytics), System (/admin/system), Audit Log (/admin/audit-log)",
+        "Layout server component checks admin role on load using requireAdmin(); redirects non-admins to / with error",
+        "Admin shell uses existing dark theme but with amber/gold accent color instead of violet to visually distinguish from user dashboard",
+        "Sidebar is responsive and collapsible on smaller screens",
+        "Shows current admin user email and avatar in sidebar header",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-105",
+      "title": "Add admin link to user dashboard sidebar",
+      "description": "As a developer, I need to integrate the admin role check into the existing user dashboard so that admins see a link to the admin dashboard.",
+      "acceptanceCriteria": [
+        "In DashboardShell.tsx, fetch the current user's role from user_profiles table on mount",
+        "If role is 'admin', show an 'Admin Dashboard' link in the sidebar (e.g., with a Shield icon) that navigates to /admin",
+        "Non-admin users do not see the admin link at all",
+        "The admin link is visually distinct (e.g., amber/gold color or badge)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-106",
+      "title": "Build admin overview dashboard — metric cards",
+      "description": "As an admin, I want to see key platform metrics (total users, subscriptions, MRR, brands, content counts) on the admin overview page.",
+      "acceptanceCriteria": [
+        "Create app/(admin)/admin/page.tsx as the admin overview dashboard",
+        "Create lib/services/admin-metrics.ts with functions to query platform metrics using admin Supabase client",
+        "Display metric cards: Total Users (from auth.users count), Active Subscriptions (from subscriptions where status='active' or 'trialing'), MRR (sum of active subscription prices), Total Brands, Total Personas Generated (from usage_tracking sum), Total Images Generated, Total Videos Generated",
+        "Each metric card shows the current value with appropriate formatting (numbers, currency)",
+        "Show growth indicator (% change vs previous 30 days) on each metric card — green for positive, red for negative",
+        "Cards use the existing holo-card glass-morphism style with amber accents",
+        "All data fetched server-side via admin client (service role)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-107",
+      "title": "Build admin overview dashboard — recent activity feed",
+      "description": "As an admin, I want a recent activity feed on the overview dashboard showing the last 20 platform events.",
+      "acceptanceCriteria": [
+        "Add a 'Recent Activity' section below metric cards on the admin overview page",
+        "Query recent events: new user sign-ups (auth.users by created_at), subscription changes (subscriptions by updated_at), content generation (brands/personas/creatives by created_at)",
+        "Merge and sort all events by timestamp, show latest 20",
+        "Each activity item shows: icon (by type), description (e.g., 'New user signed up: email@...'), timestamp (relative: '2 hours ago')",
+        "Activity feed is visually a timeline-style list with proper dark theme styling",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 8,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-108",
+      "title": "Build user management — list page with search and filters",
+      "description": "As an admin, I want to see all platform users in a paginated table with search and filtering so I can find and manage users.",
+      "acceptanceCriteria": [
+        "Create app/(admin)/admin/users/page.tsx",
+        "Display paginated table of all users with columns: Email, Name, Role, Subscription Tier, Status (active/disabled based on disabled_at), Sign-up Date, Last Active",
+        "Fetch users via admin client joining auth.users, user_profiles, and subscriptions",
+        "Search by email or name (debounced input, server-side query with ilike)",
+        "Filter dropdowns: subscription tier (free/starter/professional/agency/enterprise), role (all/user/admin), status (all/active/disabled)",
+        "Sort by: sign-up date, name, subscription tier (clickable column headers)",
+        "Show total user count and filtered count above table",
+        "Pagination with page size of 20, prev/next buttons",
+        "Click table row to navigate to /admin/users/[userId]",
+        "Filters and search persist in URL search params",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 9,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-109",
+      "title": "Build user detail page — profile and subscription info",
+      "description": "As an admin, I want to view a user's full profile, subscription, and usage details on a dedicated detail page.",
+      "acceptanceCriteria": [
+        "Create app/(admin)/admin/users/[userId]/page.tsx",
+        "Display user profile section: email, name (from user_metadata), avatar, role, sign-up date, last sign-in",
+        "Display subscription section: tier, status, Stripe customer ID (as text, not linked), current period start/end, cancel_at_period_end status",
+        "Display usage section: current period usage vs limits for personas, images, videos (progress bars like the user usage dashboard)",
+        "Display user's brands list: brand name, industry, creation date, moderation status",
+        "Breadcrumb navigation: Admin > Users > [user email]",
+        "All data fetched server-side via admin client",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 10,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-110",
+      "title": "Build user detail page — management actions",
+      "description": "As an admin, I want action buttons on the user detail page to change roles, disable/enable accounts, and delete users.",
+      "acceptanceCriteria": [
+        "Add action buttons section to user detail page",
+        "Change Role button: opens confirmation dialog, toggles between 'user' and 'admin' in user_profiles, creates audit log entry",
+        "Disable Account button (shown when user is active): opens confirmation dialog, sets disabled_at timestamp on user_profiles, creates audit log entry",
+        "Enable Account button (shown when user is disabled): opens confirmation dialog, clears disabled_at, creates audit log entry",
+        "Delete Account button: opens double-confirmation dialog requiring admin to type the user's email to confirm, deletes user profile and associated data, creates audit log entry",
+        "All actions use server actions or API routes with admin auth check",
+        "After each action, page data refreshes to show updated state",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 11,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-111",
+      "title": "Build subscription override actions on user detail page",
+      "description": "As an admin, I want to manually override a user's subscription tier, set custom limits, reset usage, and extend trials from the user detail page.",
+      "acceptanceCriteria": [
+        "Add subscription management section to user detail page with action buttons",
+        "Override Tier: dropdown to select any tier (free/starter/professional/agency/enterprise), saves to subscriptions table, creates audit log with old and new tier",
+        "Override Limits: form to set custom values for brands_limit, personas_limit, images_limit, videos_limit (overrides tier defaults), creates audit log",
+        "Reset Usage: button to reset current period usage counters to 0 in usage_tracking, creates audit log",
+        "Extend Trial: number input for days to add, extends current_period_end on subscription, creates audit log",
+        "All overrides require confirmation dialog with reason field (stored in audit log details)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 12,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-112",
+      "title": "Build subscriptions list page",
+      "description": "As an admin, I want a dedicated subscriptions page showing all subscriptions with filtering so I can get a billing overview.",
+      "acceptanceCriteria": [
+        "Create app/(admin)/admin/subscriptions/page.tsx",
+        "Display paginated table of all subscriptions with columns: User Email, Tier, Status, MRR Contribution (monthly price of tier), Period Start, Period End, Cancel at End",
+        "Filter dropdowns: tier (all/free/starter/professional/agency/enterprise), status (all/active/trialing/past_due/canceled)",
+        "Show summary at top: total subscriptions, total MRR, breakdown by tier (count and revenue)",
+        "Click row to navigate to /admin/users/[userId] for that subscription's owner",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 13,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-113",
+      "title": "Build content moderation — brands tab",
+      "description": "As an admin, I want to browse all brands across the platform and take moderation actions on them.",
+      "acceptanceCriteria": [
+        "Create app/(admin)/admin/content/page.tsx with tab navigation: Brands, Personas, Creatives, Reports",
+        "Brands tab displays paginated table: Owner Email, Brand Name, Industry, Creation Date, Moderation Status",
+        "Filter by moderation_status: all, active, flagged, disabled",
+        "Search by brand name or owner email",
+        "Each row has a moderation dropdown with actions: Flag (with reason), Disable (with reason), Restore, Delete (with confirmation)",
+        "Moderation actions update moderation_status and moderation_notes columns, create audit log entries",
+        "Use admin Supabase client to query all brands (bypasses RLS)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 14,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-114",
+      "title": "Build content moderation — personas tab",
+      "description": "As an admin, I want to browse all personas across the platform and take moderation actions on them.",
+      "acceptanceCriteria": [
+        "Add Personas tab to the content moderation page",
+        "Personas tab displays paginated table/grid: Owner Email, Brand Name, Persona Name, Photo Thumbnail, Creation Date, Moderation Status",
+        "Filter by moderation_status: all, active, flagged, disabled",
+        "Search by persona name, brand name, or owner email",
+        "Each item has moderation dropdown: Flag (with reason), Disable (with reason), Restore, Delete (with confirmation)",
+        "Moderation actions update personas.moderation_status and moderation_notes, create audit log entries",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 15,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-115",
+      "title": "Build content moderation — creatives and reports tabs",
+      "description": "As an admin, I want to browse all creatives and intelligence reports and take moderation actions.",
+      "acceptanceCriteria": [
+        "Add Creatives tab to content moderation page: grid of all creatives with thumbnail, owner, type (image/video), subtype, generation date, moderation status",
+        "Add Intelligence Reports tab: table of all reports with owner email, brand name, report type, generation date",
+        "Creatives have moderation dropdown: Flag, Disable, Restore, Delete (same pattern as brands/personas)",
+        "Reports tab is view-only (no moderation actions needed, just browsing)",
+        "Both tabs support pagination and filtering by status",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 16,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-116",
+      "title": "Build audit log page",
+      "description": "As an admin, I want to view the audit log of all admin actions with filtering so I can track what actions have been taken.",
+      "acceptanceCriteria": [
+        "Create app/(admin)/admin/audit-log/page.tsx",
+        "Display paginated table with columns: Timestamp, Admin Email, Action, Target Type, Target ID, Details (expandable)",
+        "Filter by: action type (dropdown of known actions), target type (user/brand/persona/creative/subscription), date range (start/end date pickers)",
+        "Search by target ID or action description",
+        "Sort by timestamp (newest first by default)",
+        "Clicking a target ID navigates to the relevant detail page (e.g., /admin/users/[id] for user targets)",
+        "Pagination with page size of 50",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 17,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-117",
+      "title": "Install Recharts and build basic analytics — user growth and revenue",
+      "description": "As an admin, I want analytics charts showing user growth and revenue trends over time.",
+      "acceptanceCriteria": [
+        "Install recharts package: npm install recharts",
+        "Create app/(admin)/admin/analytics/page.tsx",
+        "Create lib/services/admin-analytics.ts with query functions for analytics data",
+        "User Growth line chart: new sign-ups per day/week/month over selected period, with cumulative total line",
+        "Revenue stacked area chart: MRR over time, broken down by tier (starter/professional/agency)",
+        "Date range selector: last 7d, 30d, 90d, 1y buttons",
+        "Charts use Recharts with dark theme styling (dark background, light text, amber/gold accent colors)",
+        "Data fetched server-side via admin client",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 18,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-118",
+      "title": "Build basic analytics — subscription distribution and usage overview",
+      "description": "As an admin, I want charts showing subscription distribution and platform usage trends.",
+      "acceptanceCriteria": [
+        "Add Subscription Distribution donut/pie chart to analytics page: count of users by tier with percentage labels",
+        "Add Usage Overview bar chart: total personas, images, videos generated per day/week/month",
+        "Both charts respect the date range selector from US-117",
+        "Charts styled consistently with dark theme and amber accents",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 19,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-119",
+      "title": "Build detailed analytics — cohort retention and churn",
+      "description": "As an admin, I want cohort retention tables and churn metrics so I can understand user retention patterns.",
+      "acceptanceCriteria": [
+        "Create app/(admin)/admin/analytics/detailed/page.tsx (or tab on analytics page)",
+        "Cohort Retention Table: monthly cohorts (rows) showing retention percentage at month 1, 2, 3, etc. (columns), heatmap color coding (green=high retention, red=low)",
+        "Churn Metrics section: monthly churn rate (percentage), total churned users this month, churn breakdown by tier",
+        "LTV section: average lifetime value by tier (calculated from subscription duration * monthly price), displayed as metric cards",
+        "Data computed from subscriptions table (created_at for cohort, status changes for churn)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 20,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-120",
+      "title": "Build detailed analytics — feature adoption and conversion funnel",
+      "description": "As an admin, I want feature adoption metrics and a conversion funnel so I can see how users progress through the platform.",
+      "acceptanceCriteria": [
+        "Add Feature Adoption section: percentage of users who have created at least one brand, generated at least one persona, generated at least one image, generated at least one video, created at least one audience, generated at least one intelligence report. Display as horizontal bar chart or progress bars.",
+        "Add Conversion Funnel: Sign-up → First Brand → First Persona → First Creative → Paid Subscription. Show count and conversion rate at each stage. Visual funnel chart or stepped bar chart.",
+        "Data computed from existing tables: brands (count by user), personas, creatives, subscriptions",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 21,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-121",
+      "title": "Build real-time monitoring dashboard",
+      "description": "As an admin, I want real-time monitoring showing live activity, active users, and system health indicators.",
+      "acceptanceCriteria": [
+        "Create app/(admin)/admin/analytics/realtime/page.tsx (or tab on analytics page)",
+        "Live Activity Feed: poll every 30 seconds for recent events (new users, generations, subscription changes from last 5 minutes), display as scrolling timeline",
+        "Active Users card: count of users with any activity in last 15 minutes (based on updated_at timestamps across tables)",
+        "Generation Stats cards: count of personas/images/videos generated today, success rate percentage",
+        "Auto-refresh toggle (on by default, 30-second interval) with manual refresh button",
+        "Visual alert indicator if generation failure rate exceeds 5% (red badge/banner)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 22,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-122",
+      "title": "Build system settings page",
+      "description": "As an admin, I want a system settings page to configure platform-wide settings like trial days, maintenance mode, and registration toggle.",
+      "acceptanceCriteria": [
+        "Create app/(admin)/admin/system/page.tsx",
+        "Load current settings from system_settings table",
+        "Display editable form fields: Default Trial Days (number input), Maintenance Mode (toggle switch), Registration Enabled (toggle switch)",
+        "Display editable tier limits section: for each tier (free/starter/professional/agency), show editable fields for brands_limit, personas_limit, images_limit, videos_limit",
+        "Save button that updates all changed settings in system_settings table",
+        "Each save creates audit log entry with old and new values",
+        "Confirmation dialog before saving changes",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 23,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-123",
+      "title": "Implement user impersonation",
+      "description": "As an admin, I want to impersonate a user to see the platform from their perspective for debugging and support.",
+      "acceptanceCriteria": [
+        "Add 'Impersonate' button to user detail page (/admin/users/[userId])",
+        "Clicking sets an impersonation cookie/state with the target userId",
+        "When impersonating, DashboardShell queries data using the impersonated userId (via admin client with user_id filter)",
+        "Persistent amber banner at top of all pages during impersonation: 'Viewing as [user email] — Exit Impersonation' with exit button",
+        "Impersonation is read-only: hide or disable any create/edit/delete actions while impersonating",
+        "Clicking 'Exit Impersonation' clears the impersonation state and returns to /admin/users/[userId]",
+        "Create audit log entry when impersonation starts and ends",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 24,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-124",
+      "title": "Integrate disabled account check into login flow",
+      "description": "As a developer, I need to check for disabled accounts during login so that disabled users cannot access the platform.",
+      "acceptanceCriteria": [
+        "In the login flow (after Supabase auth succeeds), query user_profiles for the authenticated user",
+        "If disabled_at is set (not null), sign the user out immediately and show error: 'Account disabled. Contact support.'",
+        "Existing user-facing pages that list content (brands, personas, creatives) should filter out items where moderation_status is 'disabled' or 'deleted'",
+        "Flagged content (moderation_status='flagged') should still be visible to the owning user but display a warning indicator",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 25,
+      "passes": true,
+      "notes": ""
+    }
+  ]
+}

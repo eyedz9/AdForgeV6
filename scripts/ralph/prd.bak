@@ -1,0 +1,1033 @@
+{
+  "project": "AdForge",
+  "branchName": "ralph/adforge-platform",
+  "description": "AdForge - Persona-First Advertising Platform for transforming consumer intelligence into high-performance creative assets",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Create database schema for brands table",
+      "description": "As a developer, I need a brands table to store brand identity, visual guidelines, and voice/tone settings.",
+      "acceptanceCriteria": [
+        "Create brands table with columns: id (UUID), user_id (UUID), name (VARCHAR 255), business_type (VARCHAR 50), industry (VARCHAR 100), sub_industry (VARCHAR 100), website (VARCHAR 500), social_profiles (JSONB), logo_url (VARCHAR 500), logo_variants (JSONB), visual_guidelines (JSONB), voice_tone (JSONB), created_at, updated_at",
+        "Add index on user_id",
+        "Enable RLS with policy: users can only access their own brands",
+        "Migration runs successfully",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Migration at supabase/migrations/20260126000001_create_brands_table.sql with all columns, user_id index, RLS policies for SELECT/INSERT/UPDATE/DELETE, and updated_at trigger."
+    },
+    {
+      "id": "US-002",
+      "title": "Create database schema for products table",
+      "description": "As a developer, I need a products table to store product catalog with variants and marketing attributes.",
+      "acceptanceCriteria": [
+        "Create products table with columns: id (UUID), brand_id (UUID FK), product_type (VARCHAR 50), name (VARCHAR 255), short_description (VARCHAR 160), full_description (TEXT), sku (VARCHAR 100), price (DECIMAL 10,2), price_range (VARCHAR 50), images (JSONB), videos (JSONB), variants (JSONB), marketing_attributes (JSONB), created_at, updated_at",
+        "Add foreign key to brands with ON DELETE CASCADE",
+        "Add index on brand_id",
+        "Enable RLS: users can access products of their own brands",
+        "Migration runs successfully",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Migration at supabase/migrations/20260126000002_create_products_table.sql with all columns, brand_id FK with ON DELETE CASCADE, idx_products_brand_id index, RLS policies (SELECT/INSERT/UPDATE/DELETE) through brands table ownership check, and updated_at trigger."
+    },
+    {
+      "id": "US-003",
+      "title": "Create database schema for intelligence_reports table",
+      "description": "As a developer, I need an intelligence_reports table to store market data with source attribution.",
+      "acceptanceCriteria": [
+        "Create intelligence_reports table with columns: id (UUID), brand_id (UUID FK), product_id (UUID FK nullable), report_type (VARCHAR 50), generated_at (TIMESTAMPTZ), expires_at (TIMESTAMPTZ), status (VARCHAR 20 default 'active'), competitors (JSONB), search_trends (JSONB), industry_news (JSONB), social_conversations (JSONB), audience_insights (JSONB), sources (JSONB), created_at, updated_at",
+        "Add foreign keys with appropriate cascade behavior",
+        "Add indexes on brand_id and product_id",
+        "Enable RLS: users can access reports of their own brands",
+        "Migration runs successfully",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "Migration at supabase/migrations/20260126000003_create_intelligence_reports_table.sql with all required columns (id UUID, brand_id FK, product_id FK nullable, report_type, generated_at, expires_at, status default 'active', competitors/search_trends/industry_news/social_conversations JSONB arrays, audience_insights/sources JSONB, timestamps). Foreign keys: brand_id ON DELETE CASCADE, product_id ON DELETE SET NULL. Indexes on brand_id and product_id. RLS policies for SELECT/INSERT/UPDATE/DELETE through brands ownership check. Updated_at trigger."
+    },
+    {
+      "id": "US-004",
+      "title": "Create database schema for personas table",
+      "description": "As a developer, I need a personas table to store AI-generated consumer archetypes.",
+      "acceptanceCriteria": [
+        "Create personas table with columns: id (UUID), brand_id (UUID FK), product_id (UUID FK nullable), intelligence_report_id (UUID FK nullable), name (VARCHAR 100), photo_prompt (TEXT), photo_url (VARCHAR 500), backstory (TEXT), quote (VARCHAR 500), day_in_life (TEXT), demographics (JSONB), professional (JSONB), psychographics (JSONB), lifestyle (JSONB), media_tech (JSONB), buying_behavior (JSONB), beliefs_attitudes (JSONB nullable), generation_model (VARCHAR 100 default 'claude-haiku-4-5'), generation_params (JSONB), validation_status (VARCHAR 20 default 'pending'), validation_notes (TEXT), created_at, updated_at",
+        "Add foreign keys with appropriate cascade behavior",
+        "Add indexes on brand_id and product_id",
+        "Enable RLS: users can access personas of their own brands",
+        "Migration runs successfully",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": "Migration at supabase/migrations/20260126000004_create_personas_table.sql with all required columns (id UUID PK, brand_id UUID FK, product_id UUID FK nullable, intelligence_report_id UUID FK nullable, name VARCHAR 100, photo_prompt TEXT, photo_url VARCHAR 500, backstory TEXT, quote VARCHAR 500, day_in_life TEXT, demographics/professional/psychographics/lifestyle/media_tech/buying_behavior JSONB, beliefs_attitudes JSONB nullable, generation_model VARCHAR 100 default 'claude-haiku-4-5', generation_params JSONB, validation_status VARCHAR 20 default 'pending', validation_notes TEXT, timestamps). Foreign keys: brand_id ON DELETE CASCADE, product_id/intelligence_report_id ON DELETE SET NULL. Indexes on brand_id and product_id. RLS policies for SELECT/INSERT/UPDATE/DELETE through brands ownership check. Updated_at trigger."
+    },
+    {
+      "id": "US-005",
+      "title": "Create database schema for audiences table",
+      "description": "As a developer, I need an audiences table to store platform-specific targeting translations.",
+      "acceptanceCriteria": [
+        "Create audiences table with columns: id (UUID), persona_id (UUID FK), brand_id (UUID FK), name (VARCHAR 255), meta_targeting (JSONB), google_targeting (JSONB), linkedin_targeting (JSONB), tiktok_targeting (JSONB), pinterest_targeting (JSONB), snapchat_targeting (JSONB), size_estimates (JSONB), last_exported_at (TIMESTAMPTZ nullable), export_count (INTEGER default 0), created_at, updated_at",
+        "Add foreign keys with ON DELETE CASCADE",
+        "Add indexes on persona_id and brand_id",
+        "Enable RLS: users can access audiences of their own brands",
+        "Migration runs successfully",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": "Migration at supabase/migrations/20260126000005_create_audiences_table.sql with all required columns (id UUID PK, persona_id UUID FK NOT NULL, brand_id UUID FK NOT NULL, name VARCHAR 255, meta_targeting/google_targeting/linkedin_targeting/tiktok_targeting/pinterest_targeting/snapchat_targeting/size_estimates JSONB, last_exported_at TIMESTAMPTZ nullable, export_count INTEGER default 0, timestamps). Foreign keys: both persona_id and brand_id ON DELETE CASCADE. Indexes on persona_id and brand_id. RLS policies for SELECT/INSERT/UPDATE/DELETE through brands ownership check. Updated_at trigger."
+    },
+    {
+      "id": "US-006",
+      "title": "Create database schema for creatives table",
+      "description": "As a developer, I need a creatives table to store generated images and videos.",
+      "acceptanceCriteria": [
+        "Create creatives table with columns: id (UUID), brand_id (UUID FK), product_id (UUID FK nullable), persona_id (UUID FK nullable), audience_id (UUID FK nullable), creative_type (VARCHAR 20), subtype (VARCHAR 50), file_url (VARCHAR 500), thumbnail_url (VARCHAR 500 nullable), file_size (INTEGER nullable), dimensions (JSONB nullable), duration_seconds (INTEGER nullable), generation_prompt (TEXT), generation_params (JSONB), generation_model (VARCHAR 100), generation_cost (DECIMAL 10,4 nullable), headline (VARCHAR 255 nullable), subheadline (VARCHAR 255 nullable), cta (VARCHAR 100 nullable), body_copy (TEXT nullable), status (VARCHAR 20 default 'generated'), rating (INTEGER nullable), tags (JSONB default '[]'), created_at, updated_at",
+        "Add foreign keys with appropriate cascade behavior",
+        "Add indexes on brand_id, persona_id, and (creative_type, subtype)",
+        "Enable RLS: users can access creatives of their own brands",
+        "Migration runs successfully",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": "Migration at supabase/migrations/20260126000006_create_creatives_table.sql with all required columns (id UUID PK, brand_id UUID FK NOT NULL, product_id/persona_id/audience_id UUID FK nullable, creative_type VARCHAR 20, subtype VARCHAR 50, file_url VARCHAR 500, thumbnail_url VARCHAR 500 nullable, file_size INTEGER nullable, dimensions JSONB nullable, duration_seconds INTEGER nullable, generation_prompt TEXT, generation_params JSONB, generation_model VARCHAR 100, generation_cost DECIMAL 10,4 nullable, headline/subheadline/cta VARCHAR nullable, body_copy TEXT nullable, status VARCHAR 20 default 'generated', rating INTEGER nullable, tags JSONB default '[]', timestamps). Foreign keys: brand_id ON DELETE CASCADE, product_id/persona_id/audience_id ON DELETE SET NULL. Indexes: idx_creatives_brand_id, idx_creatives_persona_id, idx_creatives_type_subtype (composite). RLS policies for SELECT/INSERT/UPDATE/DELETE through brands ownership check. Updated_at trigger."
+    },
+    {
+      "id": "US-007",
+      "title": "Create database schema for subscriptions table",
+      "description": "As a developer, I need a subscriptions table to store Stripe subscription data.",
+      "acceptanceCriteria": [
+        "Create subscriptions table with columns: id (UUID), user_id (UUID FK to auth.users), stripe_customer_id (VARCHAR 255), stripe_subscription_id (VARCHAR 255 nullable), stripe_price_id (VARCHAR 255 nullable), tier (VARCHAR 50 default 'free'), status (VARCHAR 50 default 'active'), current_period_start (TIMESTAMPTZ nullable), current_period_end (TIMESTAMPTZ nullable), cancel_at_period_end (BOOLEAN default false), brands_limit (INTEGER default 1), personas_limit (INTEGER default 5), images_limit (INTEGER default 20), videos_limit (INTEGER default 5), created_at, updated_at",
+        "Add unique index on user_id",
+        "Add index on stripe_customer_id",
+        "Enable RLS: users can only access their own subscription",
+        "Migration runs successfully",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": "Migration at supabase/migrations/20260126000007_create_subscriptions_table.sql with all required columns (id UUID PK, user_id UUID FK to auth.users, stripe_customer_id VARCHAR 255 NOT NULL, stripe_subscription_id/stripe_price_id VARCHAR 255 nullable, tier VARCHAR 50 default 'free', status VARCHAR 50 default 'active', current_period_start/current_period_end TIMESTAMPTZ nullable, cancel_at_period_end BOOLEAN default false, brands_limit INTEGER default 1, personas_limit INTEGER default 5, images_limit INTEGER default 20, videos_limit INTEGER default 5, timestamps). Unique index on user_id (idx_subscriptions_user_id). Index on stripe_customer_id (idx_subscriptions_stripe_customer_id). RLS policies for SELECT/INSERT/UPDATE/DELETE using user_id = auth.uid(). Updated_at trigger."
+    },
+    {
+      "id": "US-008",
+      "title": "Create database schema for usage_tracking table",
+      "description": "As a developer, I need a usage_tracking table to track per-period usage counts.",
+      "acceptanceCriteria": [
+        "Create usage_tracking table with columns: id (UUID), user_id (UUID FK to auth.users), period_start (DATE), period_end (DATE), personas_generated (INTEGER default 0), images_generated (INTEGER default 0), videos_generated (INTEGER default 0), intelligence_reports (INTEGER default 0), personas_limit (INTEGER), images_limit (INTEGER), videos_limit (INTEGER), created_at, updated_at",
+        "Add unique constraint on (user_id, period_start)",
+        "Add index on user_id and period_start",
+        "Enable RLS: users can only access their own usage",
+        "Migration runs successfully",
+        "Typecheck passes"
+      ],
+      "priority": 8,
+      "passes": true,
+      "notes": "Migration at supabase/migrations/20260126000008_create_usage_tracking_table.sql with all required columns (id UUID PK, user_id UUID FK to auth.users ON DELETE CASCADE, period_start DATE NOT NULL, period_end DATE NOT NULL, personas_generated/images_generated/videos_generated/intelligence_reports INTEGER default 0, personas_limit/images_limit/videos_limit INTEGER NOT NULL, timestamps). Unique constraint on (user_id, period_start) via idx_usage_tracking_user_period UNIQUE INDEX. Additional indexes: idx_usage_tracking_user_id, idx_usage_tracking_period_start. RLS policies for SELECT/INSERT/UPDATE/DELETE using user_id = auth.uid(). Updated_at trigger."
+    },
+    {
+      "id": "US-009",
+      "title": "Set up Supabase storage buckets",
+      "description": "As a developer, I need storage buckets for brand assets, product images, persona photos, creatives, and exports.",
+      "acceptanceCriteria": [
+        "Create 'brand-assets' bucket with folder structure for logos",
+        "Create 'product-images' bucket",
+        "Create 'persona-photos' bucket",
+        "Create 'creatives' bucket with subfolders for images and videos",
+        "Create 'exports' bucket",
+        "Set appropriate RLS policies: users can only access their own files",
+        "Migration/setup runs successfully",
+        "Typecheck passes"
+      ],
+      "priority": 9,
+      "passes": true,
+      "notes": "Migration at supabase/migrations/20260126000009_create_storage_buckets.sql. Created 5 buckets: brand-assets (5MB, images), product-images (10MB, images), persona-photos (10MB, images), creatives (100MB, images+videos), exports (50MB, json/csv/pdf/zip). All buckets are private with RLS policies for SELECT/INSERT/UPDATE/DELETE using auth.uid()::text = (storage.foldername(name))[1] pattern. Uses ON CONFLICT DO NOTHING for idempotency."
+    },
+    {
+      "id": "US-010",
+      "title": "Create TypeScript types for database schema",
+      "description": "As a developer, I need TypeScript types generated from the database schema for type-safe queries.",
+      "acceptanceCriteria": [
+        "Generate Supabase types using generate_typescript_types",
+        "Types file created at lib/supabase/database.types.ts",
+        "All tables have corresponding TypeScript types",
+        "Typecheck passes"
+      ],
+      "priority": 10,
+      "passes": true,
+      "notes": "Types file at lib/supabase/database.types.ts with full Database type for all 8 tables (brands, products, intelligence_reports, personas, audiences, creatives, subscriptions, usage_tracking). Each table has Row, Insert, Update types and Relationships. Helper types (Tables, TablesInsert, TablesUpdate) and convenience aliases (Brand, Product, etc.) exported. JSONB field types defined for structured data (SocialProfiles, VisualGuidelines, VoiceTone, Demographics, etc.)."
+    },
+    {
+      "id": "US-011",
+      "title": "Create Supabase client utilities",
+      "description": "As a developer, I need Supabase client utilities for both client and server-side usage.",
+      "acceptanceCriteria": [
+        "Create lib/supabase/client.ts with browser client",
+        "Create lib/supabase/server.ts with server-side client",
+        "Create lib/supabase/middleware.ts for auth middleware",
+        "Clients use generated types",
+        "Typecheck passes"
+      ],
+      "priority": 11,
+      "passes": true,
+      "notes": "Created lib/supabase/client.ts (createBrowserClient with Database type), lib/supabase/server.ts (createServerClient with cookie handling), and lib/supabase/middleware.ts (updateSession function for auth refresh). All use @supabase/ssr package and Database types from database.types.ts."
+    },
+    {
+      "id": "US-012",
+      "title": "Create Zod validation schemas for brands",
+      "description": "As a developer, I need Zod schemas to validate brand data on forms and API inputs.",
+      "acceptanceCriteria": [
+        "Create lib/validations/brand.ts with schemas for: brandIdentitySchema (name, businessType, industry, etc.), visualGuidelinesSchema (colors, fonts, styles), voiceToneSchema (voice, tone, messages)",
+        "Include all required and optional fields from PRD",
+        "Export combined createBrandSchema and updateBrandSchema",
+        "Typecheck passes"
+      ],
+      "priority": 12,
+      "passes": true,
+      "notes": "Created lib/validations/brand.ts with brandIdentitySchema, socialProfilesSchema, logoVariantsSchema, visualGuidelinesSchema, voiceToneSchema. Exports createBrandSchema and updateBrandSchema. Includes option arrays for businessTypes, industries, brandVoices, toneCharacteristics, visualStyles, photographyStyles."
+    },
+    {
+      "id": "US-013",
+      "title": "Create Zod validation schemas for products",
+      "description": "As a developer, I need Zod schemas to validate product data.",
+      "acceptanceCriteria": [
+        "Create lib/validations/product.ts with schemas for: productCoreSchema, variantSchema, marketingAttributesSchema",
+        "Include all required and optional fields from PRD",
+        "Export combined createProductSchema and updateProductSchema",
+        "Typecheck passes"
+      ],
+      "priority": 13,
+      "passes": true,
+      "notes": "Created lib/validations/product.ts with productCoreSchema, productImageSchema, productVideoSchema, variantSchema, marketingAttributesSchema. Exports createProductSchema and updateProductSchema. Includes option arrays for productTypes and priceRanges."
+    },
+    {
+      "id": "US-014",
+      "title": "Create Zod validation schemas for personas",
+      "description": "As a developer, I need Zod schemas to validate persona data.",
+      "acceptanceCriteria": [
+        "Create lib/validations/persona.ts with schemas for: demographicsSchema, professionalSchema, psychographicsSchema, lifestyleSchema, mediaTechSchema, buyingBehaviorSchema",
+        "All demographic fields require specific values (not ranges)",
+        "Export combined personaSchema",
+        "Typecheck passes"
+      ],
+      "priority": 14,
+      "passes": true,
+      "notes": "Created lib/validations/persona.ts with demographicsSchema, professionalSchema, psychographicsSchema, lifestyleSchema, mediaTechSchema, buyingBehaviorSchema, beliefsAttitudesSchema. All fields require specific values (not ranges). Exports personaSchema, createPersonaSchema, updatePersonaSchema. Includes 20+ predefined option arrays (genders, educationLevels, companySizes, etc.)."
+    },
+    {
+      "id": "US-015",
+      "title": "Create server actions for brand CRUD",
+      "description": "As a developer, I need server actions to create, read, update, and delete brands.",
+      "acceptanceCriteria": [
+        "Create app/actions/brands.ts with: createBrand, getBrand, getBrands, updateBrand, deleteBrand",
+        "Actions use Supabase server client",
+        "Actions validate input with Zod schemas",
+        "Actions check subscription limits before create",
+        "Actions return typed responses",
+        "Typecheck passes"
+      ],
+      "priority": 15,
+      "passes": true,
+      "notes": "Created app/actions/brands.ts with createBrand, getBrand, getBrands, updateBrand, deleteBrand. Uses Supabase server client, Zod validation with createBrandSchema/updateBrandSchema, subscription limit checks via checkBrandLimit, and typed ActionResponse<T>."
+    },
+    {
+      "id": "US-016",
+      "title": "Create server actions for product CRUD",
+      "description": "As a developer, I need server actions to create, read, update, and delete products.",
+      "acceptanceCriteria": [
+        "Create app/actions/products.ts with: createProduct, getProduct, getProducts, updateProduct, deleteProduct",
+        "Actions use Supabase server client",
+        "Actions validate input with Zod schemas",
+        "Actions return typed responses",
+        "Typecheck passes"
+      ],
+      "priority": 16,
+      "passes": true,
+      "notes": "Created app/actions/products.ts with createProduct, getProduct, getProducts, updateProduct, deleteProduct. Uses Supabase server client, Zod validation with createProductSchema/updateProductSchema, and typed ActionResponse<T>."
+    },
+    {
+      "id": "US-017",
+      "title": "Create server actions for persona CRUD",
+      "description": "As a developer, I need server actions to manage personas.",
+      "acceptanceCriteria": [
+        "Create app/actions/personas.ts with: createPersona, getPersona, getPersonas, updatePersona, deletePersona, validatePersona",
+        "Actions use Supabase server client",
+        "Actions validate input with Zod schemas",
+        "validatePersona checks completeness, specificity, consistency",
+        "Actions return typed responses",
+        "Typecheck passes"
+      ],
+      "priority": 17,
+      "passes": true,
+      "notes": "Created app/actions/personas.ts with createPersona, getPersona, getPersonas, updatePersona, deletePersona, validatePersona. Uses Supabase server client, Zod validation, validatePersona checks completeness/specificity/consistency, typed ActionResponse<T>."
+    },
+    {
+      "id": "US-018",
+      "title": "Create server actions for audience CRUD",
+      "description": "As a developer, I need server actions to manage audiences.",
+      "acceptanceCriteria": [
+        "Create app/actions/audiences.ts with: createAudience, getAudience, getAudiences, updateAudience, deleteAudience",
+        "Actions use Supabase server client",
+        "Actions return typed responses",
+        "Typecheck passes"
+      ],
+      "priority": 18,
+      "passes": true,
+      "notes": "Created app/actions/audiences.ts with createAudience, getAudience, getAudiences, updateAudience, deleteAudience. Uses Supabase server client and typed ActionResponse<T>."
+    },
+    {
+      "id": "US-019",
+      "title": "Create server actions for creative CRUD",
+      "description": "As a developer, I need server actions to manage creatives.",
+      "acceptanceCriteria": [
+        "Create app/actions/creatives.ts with: createCreative, getCreative, getCreatives, updateCreative, deleteCreative, rateCreative",
+        "Actions use Supabase server client",
+        "deleteCreative also removes file from storage",
+        "Actions return typed responses",
+        "Typecheck passes"
+      ],
+      "priority": 19,
+      "passes": true,
+      "notes": "Created app/actions/creatives.ts with createCreative, getCreative, getCreatives, updateCreative, deleteCreative, rateCreative. Uses Supabase server client, deleteCreative removes file from storage bucket, typed ActionResponse<T>."
+    },
+    {
+      "id": "US-020",
+      "title": "Create OpenRouter API client for persona generation",
+      "description": "As a developer, I need an API client to call Claude Haiku 4.5 via OpenRouter for persona generation.",
+      "acceptanceCriteria": [
+        "Create lib/api/openrouter.ts with generatePersona function",
+        "Function accepts brand, product, and intelligence data as context",
+        "Function calls Claude Haiku 4.5 with appropriate prompt",
+        "Function returns structured persona data matching schema",
+        "Temperature set to 0.7, max tokens to 4000",
+        "Typecheck passes"
+      ],
+      "priority": 20,
+      "passes": true,
+      "notes": "Created lib/api/openrouter.ts with generatePersona function. Accepts brand, product, intelligence context. Calls claude-3-5-haiku-20241022 via OpenRouter API with temp 0.7, max_tokens 4000. Returns structured persona data. Includes generateBatch for multiple personas."
+    },
+    {
+      "id": "US-021",
+      "title": "Create BrightData API client for market intelligence",
+      "description": "As a developer, I need an API client to gather market intelligence data.",
+      "acceptanceCriteria": [
+        "Create lib/api/brightdata.ts with functions: searchCompetitors, getSearchTrends, getIndustryNews, getSocialConversations, getAudienceInsights",
+        "Each function returns data with source attribution (URL, name, timestamp, confidence)",
+        "Handle rate limits and errors gracefully",
+        "Typecheck passes"
+      ],
+      "priority": 21,
+      "passes": true,
+      "notes": "Created lib/api/brightdata.ts with searchCompetitors, getSearchTrends, getIndustryNews, getSocialConversations, getAudienceInsights. All functions return data with source attribution. Rate limit handling with retry logic. Types for Competitor, SearchTrend, IndustryNews, etc."
+    },
+    {
+      "id": "US-022",
+      "title": "Create Nano Banana Pro API client for image generation",
+      "description": "As a developer, I need an API client to generate images using Nano Banana Pro.",
+      "acceptanceCriteria": [
+        "Create lib/api/nano-banana.ts with generateImage function",
+        "Function accepts prompt, style preset, and output format",
+        "Supports all formats: 1080x1080, 1080x1920, 1080x1350, 1200x628, 1920x1080",
+        "Function returns image URL or binary data",
+        "Typecheck passes"
+      ],
+      "priority": 22,
+      "passes": true,
+      "notes": "Created lib/api/nano-banana.ts with generateImage function. Accepts prompt, stylePreset, outputFormat. Supports all formats (square, portrait, story, landscape, horizontal). Returns GeneratedImage with url, format, timestamp. Includes style presets and format dimensions."
+    },
+    {
+      "id": "US-023",
+      "title": "Create Veo 3.1 API client for video generation",
+      "description": "As a developer, I need an API client to generate videos using Veo 3.1.",
+      "acceptanceCriteria": [
+        "Create lib/api/veo.ts with generateVideo function",
+        "Function accepts prompt, duration, aspect ratio, starting image (optional)",
+        "Supports durations: 4s, 6s, 8s, 12s, 15s, 30s",
+        "Supports aspect ratios: 9:16, 1:1, 16:9",
+        "Function returns video URL",
+        "Typecheck passes"
+      ],
+      "priority": 23,
+      "passes": true,
+      "notes": "Created lib/api/veo.ts with generateVideo function. Accepts prompt, duration (4s/6s/8s/12s/15s/30s), aspectRatio (9:16/1:1/16:9), optional startingImage. Returns GeneratedVideo with url, duration, aspectRatio, timestamp. Uses Google AI Vertex endpoint."
+    },
+    {
+      "id": "US-024",
+      "title": "Create Stripe client and webhook utilities",
+      "description": "As a developer, I need Stripe utilities for subscription management.",
+      "acceptanceCriteria": [
+        "Create lib/stripe/client.ts with Stripe client initialization",
+        "Create lib/stripe/webhooks.ts with webhook signature verification",
+        "Define price IDs for tiers: Starter, Professional, Agency",
+        "Define limits per tier",
+        "Typecheck passes"
+      ],
+      "priority": 24,
+      "passes": true,
+      "notes": "Created lib/stripe/client.ts with Stripe client and TIER_LIMITS/STRIPE_PRICES constants for Starter/Professional/Agency/Enterprise tiers. Created lib/stripe/webhooks.ts with constructEvent for webhook signature verification."
+    },
+    {
+      "id": "US-025",
+      "title": "Create Stripe webhook API route",
+      "description": "As a developer, I need a webhook endpoint to handle Stripe events.",
+      "acceptanceCriteria": [
+        "Create app/api/webhooks/stripe/route.ts",
+        "Handle checkout.session.completed: create subscription record",
+        "Handle customer.subscription.updated: update tier and limits",
+        "Handle customer.subscription.deleted: downgrade to free",
+        "Handle invoice.payment_failed: update status",
+        "Handle invoice.paid: reset usage quotas",
+        "Verify webhook signature",
+        "Typecheck passes"
+      ],
+      "priority": 25,
+      "passes": true,
+      "notes": "Created app/api/webhooks/stripe/route.ts. Handles checkout.session.completed, customer.subscription.updated, customer.subscription.deleted, invoice.payment_failed, invoice.paid. Uses webhook signature verification via constructEvent."
+    },
+    {
+      "id": "US-026",
+      "title": "Create authentication layout and middleware",
+      "description": "As a developer, I need auth middleware to protect dashboard routes.",
+      "acceptanceCriteria": [
+        "Create middleware.ts that redirects unauthenticated users to login",
+        "Protected routes: /dashboard/*, /brands/*, /settings/*",
+        "Public routes: /, /login, /signup, /callback",
+        "Middleware uses Supabase auth helpers",
+        "Typecheck passes"
+      ],
+      "priority": 26,
+      "passes": true,
+      "notes": "Created middleware.ts with updateSession from lib/supabase/middleware. Protected routes redirect to /login. Public routes allowed for /, /login, /signup, /callback. Uses Supabase auth helpers."
+    },
+    {
+      "id": "US-027",
+      "title": "Create login page UI",
+      "description": "As a user, I want to log into my account.",
+      "acceptanceCriteria": [
+        "Create app/(auth)/login/page.tsx",
+        "Email/password form with validation",
+        "Google OAuth button",
+        "Link to signup page",
+        "Link to forgot password",
+        "Form submits to Supabase Auth",
+        "Redirect to dashboard on success",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 27,
+      "passes": true,
+      "notes": "Created app/(auth)/login/page.tsx with email/password form, Google OAuth button, links to signup and forgot password, Supabase Auth signInWithPassword, redirect to /brands on success."
+    },
+    {
+      "id": "US-028",
+      "title": "Create signup page UI",
+      "description": "As a new user, I want to create an account.",
+      "acceptanceCriteria": [
+        "Create app/(auth)/signup/page.tsx",
+        "Email/password form with validation (min 8 chars)",
+        "Google OAuth button",
+        "Link to login page",
+        "Form submits to Supabase Auth signUp",
+        "Show message about verification email",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 28,
+      "passes": true,
+      "notes": "Created app/(auth)/signup/page.tsx with email/password form (min 8 chars validation), Google OAuth button, link to login, Supabase Auth signUp, verification email message."
+    },
+    {
+      "id": "US-029",
+      "title": "Create auth callback route",
+      "description": "As a developer, I need a callback route for OAuth and email verification.",
+      "acceptanceCriteria": [
+        "Create app/(auth)/callback/route.ts",
+        "Exchange code for session",
+        "Create initial subscription record if new user",
+        "Redirect to dashboard or onboarding",
+        "Typecheck passes"
+      ],
+      "priority": 29,
+      "passes": true,
+      "notes": "Created app/(auth)/callback/route.ts. Exchanges code for session, creates initial free tier subscription record for new users, redirects to /brands."
+    },
+    {
+      "id": "US-030",
+      "title": "Create dashboard layout with navigation",
+      "description": "As a user, I want a consistent navigation layout in the dashboard.",
+      "acceptanceCriteria": [
+        "Create app/(dashboard)/layout.tsx",
+        "Sidebar navigation with: Brands, Settings links",
+        "Header with user avatar dropdown (profile, logout)",
+        "Main content area",
+        "Responsive: sidebar collapses on mobile",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 30,
+      "passes": true,
+      "notes": "Created app/(dashboard)/layout.tsx with sidebar (Brands, Settings), header with user avatar dropdown (profile, logout), main content area, responsive mobile collapse."
+    },
+    {
+      "id": "US-031",
+      "title": "Create brands list page",
+      "description": "As a user, I want to see all my brands in a dashboard.",
+      "acceptanceCriteria": [
+        "Create app/(dashboard)/brands/page.tsx",
+        "Grid view of brand cards",
+        "Each card shows: logo, name, industry",
+        "Create New Brand button",
+        "Empty state for users with no brands",
+        "Click card navigates to brand detail",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 31,
+      "passes": true,
+      "notes": "Created app/(dashboard)/brands/page.tsx with grid of brand cards (logo, name, industry), Create New Brand button, empty state, card links to brand detail."
+    },
+    {
+      "id": "US-032",
+      "title": "Create brand creation wizard - Step 1: Identity",
+      "description": "As a user, I want to enter basic brand information.",
+      "acceptanceCriteria": [
+        "Create app/(dashboard)/brands/new/page.tsx with multi-step wizard",
+        "Step 1 form: Brand Name, Business Type (select), Industry (select), Sub-Industry, Website, Social Profiles",
+        "Form validation with Zod schema",
+        "Next button to proceed to step 2",
+        "Progress indicator showing current step",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 32,
+      "passes": true,
+      "notes": "Created app/(dashboard)/brands/new/page.tsx with 4-step wizard. Step 1: Brand Name, Business Type, Industry, Sub-Industry, Website, Social Profiles. Zod validation, progress indicator, Next button."
+    },
+    {
+      "id": "US-033",
+      "title": "Create brand creation wizard - Step 2: Logo Upload",
+      "description": "As a user, I want to upload my brand logo.",
+      "acceptanceCriteria": [
+        "Step 2 of wizard: Logo upload",
+        "File input accepting SVG, PNG",
+        "Image preview after upload",
+        "Upload to Supabase Storage",
+        "Optional logo variants upload",
+        "Back/Next navigation",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 33,
+      "passes": true,
+      "notes": "Step 2 of wizard: Logo upload accepting SVG/PNG, image preview, upload to brand-assets bucket, optional logo variants (dark, light, icon), Back/Next navigation."
+    },
+    {
+      "id": "US-034",
+      "title": "Create brand creation wizard - Step 3: Visual Guidelines",
+      "description": "As a user, I want to define my brand's visual guidelines.",
+      "acceptanceCriteria": [
+        "Step 3 of wizard: Visual Guidelines",
+        "Color picker for Primary Color (required)",
+        "Color pickers for Secondary Colors (up to 5)",
+        "Color picker for Accent Color",
+        "Font selection dropdowns",
+        "Multi-select for Visual Style",
+        "Multi-select for Photography Style",
+        "Back/Next navigation",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 34,
+      "passes": true,
+      "notes": "Step 3 of wizard: Visual Guidelines with color pickers (primary, secondary up to 5, accent), font selection, multi-select for visual and photography styles, Back/Next navigation."
+    },
+    {
+      "id": "US-035",
+      "title": "Create brand creation wizard - Step 4: Voice & Tone",
+      "description": "As a user, I want to define my brand's voice and tone.",
+      "acceptanceCriteria": [
+        "Step 4 of wizard: Voice & Tone",
+        "Select for Brand Voice",
+        "Multi-select for Tone Characteristics (3-5)",
+        "Text inputs for Key Messages (3-5)",
+        "Optional Tagline field",
+        "Optional Words to Avoid list",
+        "Back/Complete navigation",
+        "On Complete: save brand to database",
+        "Redirect to brand detail page",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 35,
+      "passes": true,
+      "notes": "Step 4 of wizard: Voice & Tone with brand voice select, tone characteristics multi-select (3-5), key messages inputs (3-5), tagline, words to avoid, Complete button saves brand and redirects to brand detail."
+    },
+    {
+      "id": "US-036",
+      "title": "Create brand detail page layout",
+      "description": "As a user, I want to see brand details with tabs for products, personas, etc.",
+      "acceptanceCriteria": [
+        "Create app/(dashboard)/brands/[id]/page.tsx",
+        "Display brand name, logo, industry",
+        "Tabbed navigation: Overview, Products, Intelligence, Personas, Creatives",
+        "Edit button linking to edit page",
+        "Delete button with confirmation dialog",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 36,
+      "passes": true,
+      "notes": "Created app/(dashboard)/brands/[id]/page.tsx with brand name, logo, industry display. Tabbed navigation (Overview, Products, Intelligence, Personas, Creatives), Edit button to /edit, Delete with confirmation dialog."
+    },
+    {
+      "id": "US-037",
+      "title": "Create brand edit page",
+      "description": "As a user, I want to edit my brand information.",
+      "acceptanceCriteria": [
+        "Create app/(dashboard)/brands/[id]/edit/page.tsx",
+        "Pre-populated form with existing brand data",
+        "All fields from creation are editable",
+        "Save button updates database",
+        "Success notification on save",
+        "Cancel button returns to brand detail",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 37,
+      "passes": true,
+      "notes": "Created app/(dashboard)/brands/[id]/edit/page.tsx with pre-populated form, all fields editable, Save button updates via updateBrand action, success notification, Cancel returns to brand detail."
+    },
+    {
+      "id": "US-038",
+      "title": "Create products list tab component",
+      "description": "As a user, I want to see all products for a brand.",
+      "acceptanceCriteria": [
+        "Create components/products/ProductsList.tsx",
+        "Grid view of product cards",
+        "Each card shows: image, name, type, price",
+        "Add Product button",
+        "Empty state when no products",
+        "Click card navigates to product detail",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 38,
+      "passes": true,
+      "notes": "Created components/products/ProductsList.tsx with grid of product cards (image, name, type, price), Add Product button, empty state, card links to product detail."
+    },
+    {
+      "id": "US-039",
+      "title": "Create product creation form",
+      "description": "As a user, I want to add a new product to my brand.",
+      "acceptanceCriteria": [
+        "Create app/(dashboard)/brands/[id]/products/new/page.tsx",
+        "Product Type selector",
+        "Required fields: Name, Short Description (max 160), Full Description",
+        "Optional fields: SKU, Price, Price Range",
+        "Multi-file upload for images (min 3)",
+        "Optional videos upload",
+        "Marketing attributes section: UVP, Benefits, Target Problems",
+        "Save creates product and redirects to product detail",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 39,
+      "passes": true,
+      "notes": "Created app/(dashboard)/brands/[id]/products/new/page.tsx with Product Type selector, required fields (Name, Short Description, Full Description), optional fields (SKU, Price, Price Range), multi-file image upload (min 3) to product-images bucket, optional videos section with URL/title/thumbnail, marketing attributes section (UVP, Benefits, Target Problems, Competitive Advantages, Social Proof). Form validation and createProduct action integration."
+    },
+    {
+      "id": "US-040",
+      "title": "Create product detail page",
+      "description": "As a user, I want to view and edit a product.",
+      "acceptanceCriteria": [
+        "Create app/(dashboard)/brands/[id]/products/[productId]/page.tsx",
+        "Display product images gallery",
+        "Display all product information",
+        "Variants section with add/edit/delete",
+        "Edit button for each section",
+        "Delete button with confirmation",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 40,
+      "passes": true,
+      "notes": "Created full product detail page with image gallery (primary/thumbnails), product info display (name, type, price, descriptions), variants section with add/edit/delete modal, marketing attributes display, and delete confirmation modal. Edit button links to /edit page."
+    },
+    {
+      "id": "US-041",
+      "title": "Create intelligence report generation API route",
+      "description": "As a developer, I need an API route to generate intelligence reports.",
+      "acceptanceCriteria": [
+        "Create app/api/generate/intelligence/route.ts",
+        "Accept brand_id and optional product_id",
+        "Call BrightData API functions for all data types",
+        "Compile report with source attribution",
+        "Save report to database",
+        "Decrement usage quota",
+        "Return report data",
+        "Typecheck passes"
+      ],
+      "priority": 41,
+      "passes": true,
+      "notes": "Created app/api/generate/intelligence/route.ts with POST (generate) and GET (list) handlers. Accepts brand_id and optional product_id. Calls gatherAllIntelligence for competitors, trends, news, social, audience. Compiles sources with attribution. Saves to database with 30-day expiration. Increments usage tracking."
+    },
+    {
+      "id": "US-042",
+      "title": "Create intelligence tab with report display",
+      "description": "As a user, I want to view and generate intelligence reports.",
+      "acceptanceCriteria": [
+        "Create components/intelligence/IntelligenceTab.tsx",
+        "Generate Report button",
+        "Loading state during generation",
+        "Display competitors section with source links",
+        "Display trends section with charts/lists",
+        "Display audience insights",
+        "Refresh button for existing reports",
+        "Show report expiration date",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 42,
+      "passes": true,
+      "notes": "Created components/intelligence/IntelligenceTab.tsx with full report display. Features: Generate Report button with loading/generating states, collapsible sections for Competitors/Trends/News/Social/Audience, source attribution with confidence scores, Refresh button, expiration date display with visual indicators. Integrated into brand detail page."
+    },
+    {
+      "id": "US-043",
+      "title": "Create persona generation API route",
+      "description": "As a developer, I need an API route to generate personas via OpenRouter.",
+      "acceptanceCriteria": [
+        "Create app/api/generate/persona/route.ts",
+        "Accept brand_id, product_id, intelligence_report_id, count",
+        "Build context from brand, product, intelligence data",
+        "Call OpenRouter with Claude Haiku 4.5",
+        "Parse response into persona schema",
+        "Validate all fields are specific values (not ranges)",
+        "Save personas to database",
+        "Decrement usage quota",
+        "Return generated personas",
+        "Typecheck passes"
+      ],
+      "priority": 43,
+      "passes": true,
+      "notes": "Created app/api/generate/persona/route.ts with POST (generate) and GET (list) handlers. POST accepts brand_id, product_id, intelligence_report_id, count (1-5). Builds context from brand/product/intelligence data. Calls generatePersonas from lib/api/openrouter.ts which uses Claude Haiku 4.5. Validates responses with Zod personaSchema. validateSpecificValues checks age/income/householdSize are numbers and location is specific. Saves to database with personaToInsert helper. checkPersonaQuota/incrementPersonaUsage handle usage tracking. Returns 429 if quota exceeded. GET supports filtering by product_id and validation_status."
+    },
+    {
+      "id": "US-044",
+      "title": "Create personas list tab component",
+      "description": "As a user, I want to see all personas for a brand.",
+      "acceptanceCriteria": [
+        "Create components/personas/PersonasList.tsx",
+        "Grid view of persona cards",
+        "Each card shows: photo placeholder, name, key demographics, validation status badge",
+        "Generate Personas button",
+        "Filter by product, validation status",
+        "Click card navigates to persona detail",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 44,
+      "passes": true,
+      "notes": "Created components/personas/PersonasList.tsx with grid view of persona cards showing photo placeholder, name, demographics, validation status badge. Generate Personas button with placeholder modal (full implementation in US-045). Filter by product and validation status. Click navigation to persona detail. Integrated into brand detail page replacing PlaceholderTab."
+    },
+    {
+      "id": "US-045",
+      "title": "Create persona generation modal",
+      "description": "As a user, I want to generate new personas from the UI.",
+      "acceptanceCriteria": [
+        "Create components/personas/GeneratePersonaModal.tsx",
+        "Select product (required if multiple exist)",
+        "Select intelligence report (required)",
+        "Number of personas to generate (1-5)",
+        "Generate button triggers API call",
+        "Loading state with progress message",
+        "Success shows generated personas",
+        "Close refreshes personas list",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 45,
+      "passes": true,
+      "notes": "Created components/personas/GeneratePersonaModal.tsx with full persona generation functionality. Features: product selection dropdown (auto-selects if single product), intelligence report selection dropdown (filters to active reports only), persona count selector (1-5 with +/- buttons), Generate button triggers POST /api/generate/persona, loading state with animated progress steps, success state shows generated persona cards with demographics and validation status, quota tracking display, error handling with upgrade link. Integrated into PersonasList replacing placeholder modal. Modal refreshes persona list on close after generation."
+    },
+    {
+      "id": "US-046",
+      "title": "Create persona detail page",
+      "description": "As a user, I want to view full persona details.",
+      "acceptanceCriteria": [
+        "Create app/(dashboard)/brands/[id]/personas/[personaId]/page.tsx",
+        "Display persona photo (placeholder if none)",
+        "Sections: Demographics, Professional, Psychographics, Lifestyle, Media & Tech, Buying Behavior",
+        "Expandable/collapsible sections",
+        "Display backstory and quote",
+        "Validation status with notes",
+        "Edit and Delete buttons",
+        "Build Audience button",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 46,
+      "passes": true,
+      "notes": "Created app/(dashboard)/brands/[id]/personas/[personaId]/page.tsx with full persona detail view. Features: photo display with gradient placeholder, ValidationStatusBadge component, CollapsibleSection component for all 6 data sections (Demographics, Professional, Psychographics, Lifestyle, Media & Tech, Buying Behavior), backstory and quote display, day-in-life narrative section, validation notes display, Build Audience button linking to audience page, Edit button linking to edit page, Delete button with confirmation modal, metadata card showing generation model and timestamps. All sections use InfoRow and TagsList helper components for consistent display. Responsive two-column layout (photo/narrative left, data sections right)."
+    },
+    {
+      "id": "US-047",
+      "title": "Create audience translation service",
+      "description": "As a developer, I need a service to translate persona attributes to platform targeting.",
+      "acceptanceCriteria": [
+        "Create lib/services/audience-translator.ts",
+        "Function translateToMeta: convert demographics, interests to Meta format with IDs",
+        "Function translateToGoogle: convert to affinity/in-market audiences",
+        "Function translateToLinkedIn: convert professional data to LinkedIn targeting",
+        "Function translateToTikTok: convert demographics, interests",
+        "Function translateToPinterest and translateToSnapchat",
+        "Return structured targeting objects",
+        "Typecheck passes"
+      ],
+      "priority": 47,
+      "passes": true,
+      "notes": "Created lib/services/audience-translator.ts with translateToMeta, translateToGoogle, translateToLinkedIn, translateToTikTok, translateToPinterest, translateToSnapchat functions. Each returns structured targeting objects with platform-specific formats. Main translatePersonaToAudiences function generates targeting for all platforms with size estimates. Includes JSON/CSV export utilities."
+    },
+    {
+      "id": "US-048",
+      "title": "Create audience building API route",
+      "description": "As a developer, I need an API route to create audiences from personas.",
+      "acceptanceCriteria": [
+        "Create app/api/generate/audience/route.ts",
+        "Accept persona_id",
+        "Load persona data",
+        "Call audience translator for all platforms",
+        "Save audience to database",
+        "Return audience with all platform targeting",
+        "Typecheck passes"
+      ],
+      "priority": 48,
+      "passes": true,
+      "notes": "Created app/api/generate/audience/route.ts with POST and GET handlers. POST accepts persona_id, loads persona data with brand ownership verification, calls translatePersonaToAudiences from audience-translator service, saves audience to database with all platform targeting (meta, google, linkedin, tiktok, pinterest, snapchat) and size estimates. Returns 409 if audience already exists for persona. GET lists audiences by brand_id or persona_id with ownership verification. Typecheck passes."
+    },
+    {
+      "id": "US-049",
+      "title": "Create audience detail page",
+      "description": "As a user, I want to view audience targeting by platform.",
+      "acceptanceCriteria": [
+        "Create app/(dashboard)/brands/[id]/personas/[personaId]/audience/page.tsx",
+        "Tabbed view for each platform: Meta, Google, LinkedIn, TikTok, Pinterest, Snapchat",
+        "Each tab shows platform-specific targeting parameters",
+        "Export button with format selector (JSON, CSV)",
+        "Download triggers file download",
+        "Update export_count on export",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 49,
+      "passes": true,
+      "notes": "Created app/(dashboard)/brands/[id]/personas/[personaId]/audience/page.tsx with comprehensive audience detail view. Features: tabbed platform view for Meta, Google, LinkedIn, TikTok, Pinterest, Snapchat with platform-specific icons and colors. Each tab displays targeting parameters in organized sections (Demographics, Location, Interests, Behaviors, etc.). Platform-specific display components for each platform's unique targeting structure. Export modal with JSON/CSV format selector. Download functionality creates file and updates export_count locally. Build Audience button for personas without existing audiences calls POST /api/generate/audience. Size estimates display for each platform with formatted numbers (K/M). Responsive design with mobile support. Full TypeScript typing for all targeting interfaces."
+    },
+    {
+      "id": "US-050",
+      "title": "Create image generation API route",
+      "description": "As a developer, I need an API route to generate images via Nano Banana Pro.",
+      "acceptanceCriteria": [
+        "Create app/api/generate/image/route.ts",
+        "Accept persona_id, brand_id, image_type, style_preset, output_format, count",
+        "Build prompt from persona and brand data",
+        "Call Nano Banana Pro API",
+        "Upload generated images to Supabase Storage",
+        "Create creative records in database",
+        "Decrement usage quota",
+        "Return creative data with URLs",
+        "Typecheck passes"
+      ],
+      "priority": 50,
+      "passes": true,
+      "notes": "Created app/api/generate/image/route.ts with POST and GET handlers. POST accepts persona_id, brand_id, product_id (optional), image_type (hero-ad/product-focus/lifestyle/testimonial/comparison/ugc-style), style_preset, output_format, count (1-5). Builds detailed prompt from persona demographics/lifestyle/psychographics and brand visual guidelines. Calls generateImageWithRetry from nano-banana.ts. Downloads images, uploads to Supabase Storage creatives bucket. Creates creative records with dimensions, generation params, and status. Quota check via checkImageQuota and increment via incrementImageUsage. GET endpoint lists creatives by brand_id with optional filters (persona_id, type, subtype, limit). Typecheck passes."
+    },
+    {
+      "id": "US-051",
+      "title": "Create video generation API route",
+      "description": "As a developer, I need an API route to generate videos via Veo 3.1.",
+      "acceptanceCriteria": [
+        "Create app/api/generate/video/route.ts",
+        "Accept persona_id, brand_id, video_type, duration, aspect_ratio, starting_image (optional)",
+        "Build prompt from persona and brand data",
+        "Call Veo 3.1 API",
+        "Upload generated video to Supabase Storage",
+        "Create creative record in database",
+        "Decrement usage quota",
+        "Return creative data with URL",
+        "Typecheck passes"
+      ],
+      "priority": 51,
+      "passes": true,
+      "notes": "Created app/api/generate/video/route.ts with POST and GET handlers. POST accepts persona_id, brand_id, product_id (optional), video_type (ugc-style/product-demo/testimonial/dynamic), duration (4s/6s/8s/12s/15s/30s), aspect_ratio (9:16/1:1/16:9), starting_image_url (optional). Builds detailed prompt from persona demographics/lifestyle/psychographics and brand visual guidelines. Calls generateVideoWithRetry from veo.ts (Veo 3.1 API). Downloads video, uploads to Supabase Storage creatives bucket. Creates creative record with dimensions, duration_seconds, generation_params. Quota check via checkVideoQuota and increment via incrementVideoUsage. GET endpoint lists video creatives by brand_id with optional filters (persona_id, subtype, limit). Typecheck passes."
+    },
+    {
+      "id": "US-052",
+      "title": "Create creatives tab with gallery",
+      "description": "As a user, I want to see all my generated creatives.",
+      "acceptanceCriteria": [
+        "Create components/creatives/CreativesGallery.tsx",
+        "Grid view of creative thumbnails",
+        "Filter by type (image/video), persona, product",
+        "Sort by date, rating",
+        "Click thumbnail opens detail modal",
+        "Generate Images and Generate Videos buttons",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 52,
+      "passes": true,
+      "notes": "Created components/creatives/CreativesGallery.tsx with comprehensive creatives display. Features: Grid view of creative thumbnails with CreativeCard component showing type badge (image/video), rating stars, subtype label, dimensions, and date. FilterBar component with type (image/video), persona, and product dropdowns. Sorting by date (newest/oldest) and rating (highest/lowest). CreativeDetailModal with full-size media display (video player or image), rating stars (1-5 clickable), generation details (model, dimensions, duration, style, prompt), download button, and delete with confirmation. Generate Images and Generate Videos buttons with placeholder modals (full implementations in US-053 and US-054). Integrated into brand detail page replacing PlaceholderTab. Typecheck passes."
+    },
+    {
+      "id": "US-053",
+      "title": "Create image generation modal",
+      "description": "As a user, I want to generate new images from the UI.",
+      "acceptanceCriteria": [
+        "Create components/creatives/GenerateImageModal.tsx",
+        "Select persona (required)",
+        "Image type selector: Hero Ad, Product Focus, Lifestyle, Testimonial, Comparison, UGC Style",
+        "Style preset selector: Clean Modern, Bold & Vibrant, Natural Organic, Premium Studio, Authentic Raw",
+        "Output format selector with dimension previews",
+        "Number of variations (1-5)",
+        "Generate button triggers API",
+        "Loading state with progress",
+        "Success shows generated images",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 53,
+      "passes": true,
+      "notes": "Created components/creatives/GenerateImageModal.tsx with comprehensive image generation UI. Features: persona selection grid with avatars and demographics, optional product selection dropdown, image type selector (6 types: hero-ad, product-focus, lifestyle, testimonial, comparison, ugc-style), style preset selector (5 presets: clean-modern, bold-vibrant, natural-organic, premium-studio, authentic-raw), output format selector with visual aspect ratio previews (1080x1080, 1080x1920, 1080x1350, 1200x628, 1920x1080), image count selector (1-5 with +/- buttons). Generates via POST /api/generate/image. Loading state with animated steps (Building prompt, Applying style, Rendering images). Success state shows generated image grid with dimensions and subtypes. Quota tracking display. Error handling with upgrade link. Integrated into CreativesGallery replacing placeholder modal. Typecheck passes."
+    },
+    {
+      "id": "US-054",
+      "title": "Create video generation modal",
+      "description": "As a user, I want to generate new videos from the UI.",
+      "acceptanceCriteria": [
+        "Create components/creatives/GenerateVideoModal.tsx",
+        "Select persona (required)",
+        "Video type selector: UGC Style, Product Demo, Testimonial, Dynamic",
+        "Duration selector: 4s, 6s, 8s, 12s, 15s, 30s",
+        "Aspect ratio selector: 9:16, 1:1, 16:9",
+        "Optional starting image upload",
+        "Generate button triggers API",
+        "Loading state (videos take longer)",
+        "Success shows generated video",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 54,
+      "passes": true,
+      "notes": "Created components/creatives/GenerateVideoModal.tsx with comprehensive video generation UI. Features: persona selection grid with avatars and demographics, optional product selection dropdown, video type selector (4 types: ugc-style, product-demo, testimonial, dynamic) with descriptions, duration selector (6 options: 4s, 6s, 8s, 12s, 15s, 30s) with labels, aspect ratio selector with visual previews (9:16 vertical, 1:1 square, 16:9 horizontal) showing resolutions, optional starting image URL input. Generates via POST /api/generate/video. Loading state with animated steps (Building persona-aware script, Applying style, Rendering video) and timing note. Success state shows generated video player with thumbnail, dimensions, duration, and subtype. Quota tracking display. Error handling with upgrade link. Integrated into CreativesGallery replacing placeholder modal. Typecheck passes."
+    },
+    {
+      "id": "US-055",
+      "title": "Create creative detail modal",
+      "description": "As a user, I want to view creative details and download.",
+      "acceptanceCriteria": [
+        "Create components/creatives/CreativeDetailModal.tsx",
+        "Display full-size image or video player",
+        "Show generation parameters (prompt, style, format)",
+        "5-star rating component (saves to DB)",
+        "Download button (original resolution)",
+        "Delete button with confirmation",
+        "Associated headline/CTA if present",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 55,
+      "passes": true,
+      "notes": "Created components/creatives/CreativeDetailModal.tsx as standalone component extracted from CreativesGallery.tsx. Features: full-size image/video player, generation parameters display (model, dimensions, duration, style, format, aspect ratio, cost), interactive 5-star rating, download with loading state, delete with confirmation dialog, headline/subheadline/CTA/body_copy display, tags display, responsive mobile layout. Typecheck passes."
+    },
+    {
+      "id": "US-056",
+      "title": "Create subscription pricing page",
+      "description": "As a new user, I want to select a subscription tier.",
+      "acceptanceCriteria": [
+        "Create app/(dashboard)/settings/subscription/page.tsx",
+        "Display four tiers: Starter ($49), Professional ($149), Agency ($399), Enterprise (Custom)",
+        "Feature comparison table",
+        "Current plan highlighted if subscribed",
+        "Subscribe/Upgrade buttons link to Stripe Checkout",
+        "Cancel subscription button for paid users",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 56,
+      "passes": true,
+      "notes": "Created app/(dashboard)/settings/subscription/page.tsx with full subscription management UI. Features: four tiers display (Starter $49, Professional $149, Agency $399, Enterprise Custom), monthly/yearly billing toggle with 20% yearly savings badge, feature comparison table, current plan banner with manage/cancel buttons, cancel subscription modal with reactivate option. Created supporting API routes: app/api/stripe/checkout/route.ts (creates Checkout sessions with 14-day trial), app/api/stripe/portal/route.ts (opens Billing Portal), app/api/stripe/cancel/route.ts (cancels at period end), app/api/stripe/reactivate/route.ts (reactivates canceled subscriptions). All routes use Supabase auth and proper TypeScript typing."
+    },
+    {
+      "id": "US-057",
+      "title": "Create usage dashboard",
+      "description": "As a user, I want to see my usage statistics.",
+      "acceptanceCriteria": [
+        "Create app/(dashboard)/settings/usage/page.tsx",
+        "Display current period dates",
+        "Progress bars for: personas, images, videos, intelligence reports",
+        "Show used / limit for each",
+        "Warning state when near limit (>80%)",
+        "Link to upgrade if at limit",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 57,
+      "passes": true,
+      "notes": "Created app/(dashboard)/settings/usage/page.tsx with comprehensive usage dashboard. Features: period info card with gradient header showing current billing period dates and days remaining, metrics grid with progress bars for personas, images, videos, and intelligence reports, used/limit display with unlimited handling, status badges (Healthy/Near Limit/At Limit/Unlimited), warning banners at >80% usage with upgrade links, danger banners at 100% with upgrade links, upgrade CTA for free/starter tiers, usage tips section. Uses Supabase queries for subscription and usage_tracking tables. Typecheck passes."
+    },
+    {
+      "id": "US-058",
+      "title": "Create profile settings page",
+      "description": "As a user, I want to update my profile information.",
+      "acceptanceCriteria": [
+        "Create app/(dashboard)/settings/profile/page.tsx",
+        "Edit name and email fields",
+        "Change password section (requires current password)",
+        "Save button updates profile",
+        "Success notification on save",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 58,
+      "passes": true,
+      "notes": "Created app/(dashboard)/settings/profile/page.tsx with comprehensive profile settings UI. Features: name and email edit form with Supabase Auth updateUser integration, change password section requiring current password verification via signInWithPassword, success notifications with auto-dismiss (3 seconds), error handling with descriptive messages, field hints for email change and password requirements, account info section showing ID and verified status, responsive design matching existing settings pages style. Typecheck passes."
+    },
+    {
+      "id": "US-059",
+      "title": "Create usage quota enforcement",
+      "description": "As a developer, I need to enforce usage quotas before generation.",
+      "acceptanceCriteria": [
+        "Create lib/services/usage.ts with checkQuota and decrementQuota functions",
+        "checkQuota returns {allowed: boolean, remaining: number, limit: number}",
+        "All generation API routes call checkQuota before proceeding",
+        "Return 429 with message if quota exceeded",
+        "decrementQuota called after successful generation",
+        "Typecheck passes"
+      ],
+      "priority": 59,
+      "passes": true,
+      "notes": "Created lib/services/usage.ts with centralized quota functions: checkQuota (validates remaining quota), decrementQuota (increments usage after generation), getCurrentUsage (retrieves all usage data), checkQuotaOrFail (helper for API routes). Supports all quota types: personas, images, videos, intelligence_reports. Intelligence reports use tier-based limits (free: 10, starter: 25, professional: 100, agency: 500, enterprise: unlimited). Updated all generation API routes (persona, image, video, intelligence) to use centralized service. Returns 429 with error, remaining, limit on quota exceeded. Handles unlimited (-1) values for enterprise tier."
+    },
+    {
+      "id": "US-060",
+      "title": "Add empty states and loading states throughout",
+      "description": "As a user, I want clear feedback when there's no data or when loading.",
+      "acceptanceCriteria": [
+        "Create components/shared/EmptyState.tsx with icon, title, description, CTA",
+        "Create components/shared/LoadingState.tsx with spinner/skeleton",
+        "Add empty states to: brands list, products list, personas list, creatives gallery",
+        "Add loading states to all data-fetching components",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 60,
+      "passes": true,
+      "notes": "Created components/shared/ directory with EmptyState.tsx (configurable icon types, title, description, primary/secondary CTAs), LoadingState.tsx (spinner/skeleton variants, multiple presets for cards/products/personas/creatives/list/table), and index.ts for exports. Updated brands list, ProductsList, PersonasList, and CreativesGallery to use shared components. All typecheck passes."
+    }
+  ]
+}

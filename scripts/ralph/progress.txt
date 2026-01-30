@@ -1,0 +1,640 @@
+<<<<<<< HEAD
+# Ralph Progress Log
+Started: Mon Jan 26 14:50:16 PST 2026
+---
+
+## Codebase Patterns
+
+### Supabase & Database
+- Use `as unknown as Json` for type casting complex objects to JSONB fields
+- Use `as never` for Supabase insert/update calls to bypass type inference issues
+- Cast returned data with `as Type` (e.g., `as IntelligenceReport`)
+- Use `!= null` instead of `!== null` to catch both null and undefined in TypeScript
+- RLS policies need separate policies for each operation (SELECT, INSERT, UPDATE, DELETE)
+- RLS for child tables: `EXISTS (SELECT 1 FROM parent WHERE parent.id = child.parent_id AND parent.user_id = auth.uid())`
+- Storage RLS uses `auth.uid()::text = (storage.foldername(name))[1]` for ownership check
+- Storage path pattern: `{user_id}/{bucket-purpose}/{brand_id}/{timestamp}.{ext}`
+- Period dates for usage: periodStart = first of month, periodEnd = last of month
+- Query usage by period_start with ISO date string (YYYY-MM-DD format)
+
+### API Routes
+- Quota check pattern: return 429 with { error, remaining, limit } when exceeded
+- Check for existing resources before creating (409 Conflict pattern)
+- For routes that don't use the request object, use `export async function POST()` without parameter
+- Fetch intelligence reports via GET /api/generate/intelligence?brand_id={id}
+- BrightData API returns BrightDataResponse<T> which can be success or error
+
+### UI Components
+- Parse JSONB fields from database using a helper function (parseXxx) for type safety
+- Use expandedSections state object for managing multiple collapsible sections
+- Modal state pattern: isOpen prop + onClose + onGenerated callbacks for parent control
+- Auto-selection pattern: if (data.length === 1) setState(data[0].id) for single-item lists
+- Filter by product uses server-side filtering, filter by status uses client-side filtering
+- Download pattern: fetch blob, createObjectURL, create anchor, click, cleanup
+- Export functionality: Blob + URL.createObjectURL + anchor.click pattern
+- Progress bar color logic: <80% green (#10b981), 80-99% yellow (#f59e0b), 100% red (#dc2626)
+- Use backdrop-filter: blur() for modal overlays
+
+### Generation & AI
+- Use `generateImageWithRetry` / `generateVideoWithRetry` for automatic retry on rate limits
+- Image generation prompts work best with specific persona details, not generic descriptions
+- UGC-style prompts should mention "slight imperfection" for authenticity
+- Video generation takes longer (30-60 seconds) - include timing note in UI
+- Mark personas as "needs_revision" instead of rejecting when values aren't specific enough
+
+### Stripe & Subscriptions
+- Stripe Billing Portal provides built-in UI for payment method and invoice management
+- Cancel at period end pattern: user keeps access until billing cycle ends
+- tierPricing and tierLimits from lib/stripe/client provide all subscription configuration
+- Unlimited values represented as -1 in tierLimits
+- Intelligence reports don't have a limit column in subscriptions - use tier-based lookup
+
+### Shared Components
+- Shared components live in `components/shared/` imported via `@/components/shared`
+- EmptyState accepts `icon` as either a predefined type string or custom ReactNode
+- LoadingState presets: cards, products, personas, creatives, list, table
+- Use barrel exports (index.ts) for cleaner imports
+
+### Next.js 15
+- Use `use(params)` with Promise<{...}> for Next.js 15 app router params
+
+---
+
+## Recent Progress (Full archive: archive/progress-2026-01-27-full.txt)
+
+## 2026-01-27 - US-056: Create subscription pricing page
+- Created `app/(dashboard)/settings/subscription/page.tsx` with four tier display
+- Monthly/yearly billing toggle, feature comparison table, cancel modal
+- Created Stripe API routes: checkout, portal, cancel, reactivate
+- Files: subscription/page.tsx, app/api/stripe/*.ts
+---
+
+## 2026-01-27 - US-057: Create usage dashboard
+- Created `app/(dashboard)/settings/usage/page.tsx` with usage metrics
+- Progress bars, warning states, upgrade CTAs, usage tips
+- Files: usage/page.tsx
+---
+
+## 2026-01-27 - US-058: Create profile settings page
+- Created `app/(dashboard)/settings/profile/page.tsx`
+- Personal info editing, password change with verification
+- Files: profile/page.tsx
+---
+
+## 2026-01-27 - US-059: Create usage quota enforcement
+- Created `lib/services/usage.ts` with checkQuota, decrementQuota, getCurrentUsage
+- Updated all generation API routes to use centralized service
+- Files: lib/services/usage.ts, app/api/generate/*.ts
+---
+
+## 2026-01-27 - US-060: Add empty states and loading states throughout
+- Created `components/shared/EmptyState.tsx` and `LoadingState.tsx`
+- Updated brands list, ProductsList, PersonasList, CreativesGallery
+- Files: components/shared/*.tsx, various list components
+---
+=======
+# Ralph Progress Log
+Started: Tue Jan 28 2026
+Feature: Admin Dashboard
+Branch: ralph/admin-dashboard
+---
+
+## Codebase Patterns
+
+### Supabase & Database
+- Use `as unknown as Json` for type casting complex objects to JSONB fields
+- Use `as never` for Supabase insert/update calls to bypass type inference issues
+- Cast returned data with `as Type` (e.g., `as IntelligenceReport`)
+- Use `!= null` instead of `!== null` to catch both null and undefined in TypeScript
+- Use `.single<{ col: type }>()` generic override when Supabase browser client infers `never` for typed queries
+- RLS policies need separate policies for each operation (SELECT, INSERT, UPDATE, DELETE)
+- RLS for child tables: `EXISTS (SELECT 1 FROM parent WHERE parent.id = child.parent_id AND parent.user_id = auth.uid())`
+- Storage RLS uses `auth.uid()::text = (storage.foldername(name))[1]` for ownership check
+- Storage path pattern: `{user_id}/{bucket-purpose}/{brand_id}/{timestamp}.{ext}`
+- Period dates for usage: periodStart = first of month, periodEnd = last of month
+- Query usage by period_start with ISO date string (YYYY-MM-DD format)
+
+### API Routes
+- Quota check pattern: return 429 with { error, remaining, limit } when exceeded
+- Check for existing resources before creating (409 Conflict pattern)
+- For routes that don't use the request object, use `export async function POST()` without parameter
+- Fetch intelligence reports via GET /api/generate/intelligence?brand_id={id}
+- BrightData API returns BrightDataResponse<T> which can be success or error
+
+### UI Components
+- Parse JSONB fields from database using a helper function (parseXxx) for type safety
+- Use expandedSections state object for managing multiple collapsible sections
+- Modal state pattern: isOpen prop + onClose + onGenerated callbacks for parent control
+- Auto-selection pattern: if (data.length === 1) setState(data[0].id) for single-item lists
+- Filter by product uses server-side filtering, filter by status uses client-side filtering
+- Download pattern: fetch blob, createObjectURL, create anchor, click, cleanup
+- Export functionality: Blob + URL.createObjectURL + anchor.click pattern
+- Progress bar color logic: <80% green (#10b981), 80-99% yellow (#f59e0b), 100% red (#dc2626)
+- Use backdrop-filter: blur() for modal overlays
+
+### Generation & AI
+- Use `generateImageWithRetry` / `generateVideoWithRetry` for automatic retry on rate limits
+- Image generation prompts work best with specific persona details, not generic descriptions
+- UGC-style prompts should mention "slight imperfection" for authenticity
+- Video generation takes longer (30-60 seconds) - include timing note in UI
+- Mark personas as "needs_revision" instead of rejecting when values aren't specific enough
+
+### Stripe & Subscriptions
+- Stripe Billing Portal provides built-in UI for payment method and invoice management
+- Cancel at period end pattern: user keeps access until billing cycle ends
+- tierPricing and tierLimits from lib/stripe/client provide all subscription configuration
+- Unlimited values represented as -1 in tierLimits
+- Intelligence reports don't have a limit column in subscriptions - use tier-based lookup
+
+### Shared Components
+- Shared components live in `components/shared/` imported via `@/components/shared`
+- EmptyState accepts `icon` as either a predefined type string or custom ReactNode
+- LoadingState presets: cards, products, personas, creatives, list, table
+- Use barrel exports (index.ts) for cleaner imports
+
+### Next.js 15
+- Use `use(params)` with Promise<{...}> for Next.js 15 app router params
+
+### Admin Dashboard
+- Admin uses service role key (SUPABASE_SERVICE_ROLE_KEY) to bypass RLS
+- Admin role stored in user_profiles.role column
+- Admin layout at app/(admin)/ with force-dynamic and AdminShell
+- Amber/gold accent color distinguishes admin from user dashboard — swap `--color-plasma-violet` to `--color-plasma-amber` and rgba(139,92,246) to rgba(245,158,11)
+- All admin actions must create audit_logs entries
+- Moderation columns (moderation_status, moderation_notes) on brands, personas, creatives
+- audit_logs is append-only (no updated_at); system_settings uses TEXT PK (setting key name)
+- Use `admin.auth.admin.getUserById(uid)` to get user email from auth.users (service role only)
+- For cross-table user email lookups: collect IDs → batch Promise.all getUserById → build emailMap
+- For service-role-only tables: enable RLS with no policies (blocks all user access)
+- Admin route group `(admin)` contains `admin/` URL prefix — `/admin` maps to `app/(admin)/admin/page.tsx`
+- Admin nav links: Dashboard, Users, Content, Subscriptions, Analytics, System, Audit Log
+- AdminShell receives adminUser as serializable prop from server layout (no client-side auth fetch needed)
+- URL search params pattern for admin pages: server component reads `searchParams` Promise, client component uses `useSearchParams()` + `useRouter().push()` for interactive filters
+- Debounced search input: `useEffect` + `setTimeout` ref with 400ms delay, clear on cleanup
+- Badge color conventions: emerald=active/success, rose=disabled/error, amber=admin/warning, violet=professional, cyan=starter/info
+- Admin detail pages use InfoRow pattern (icon + label + value) with `divide-y divide-white/[0.04]` separators
+- Use `maybeSingle()` for queries that may return 0 rows (subscriptions, usage_tracking) to avoid PGRST116 errors
+- Breadcrumb pattern: `Admin > Section > [entity]` using ChevronRight separators and Link components
+- Server actions pattern: `"use server"` file in route directory → client component imports and calls via `useTransition` + `startTransition`
+- `revalidatePath()` in server action + `router.refresh()` in client to refresh RSC data after mutations
+- ConfirmDialog pattern: fixed overlay with backdrop-blur, AlertTriangle icon, optional children for extra inputs (e.g., email confirmation)
+- Content moderation actions are generic: `updateModerationStatus(contentType, contentId, newStatus, reason)` works for brands, personas, creatives
+- Moderation notes use append pattern: `[ISO_timestamp] status: reason` per line — never overwrite, always append
+- Content page tab nav: `tab` search param, reset other params on tab change, each tab is a separate client component
+- Recharts pattern: server page fetches data → passes to "use client" chart component. Use ResponsiveContainer in a fixed-height parent. Dark theme: tick fill rgba(255,255,255,0.4), grid stroke rgba(255,255,255,0.06), custom Tooltip with glassmorphism
+- Data point thinning: for charts with many days (90d/1y), thin to ~45-52 points with `thinDataPoints()` helper, always include last point
+- Recharts PieChart/donut: use `<Pie innerRadius={60} outerRadius={100}>` for donut shape; custom label via `label={renderPieLabel}` function; Cell component for per-slice colors
+- Subscription distribution is date-range-independent (always shows current active/trialing subs); usage overview respects date range
+- Cohort retention: group subs by `toYearMonth(created_at)`, check active at month N via `updated_at > monthEndDate`. Cap at 12 months × 12 columns.
+- Churn analysis: only count paid tiers; "active at start of month" = created before month start AND (currently active OR became inactive during this month)
+- For admin API routes (polling endpoints), use `isAdmin()` instead of `requireAdmin()` — requireAdmin uses redirect() which is meant for pages
+- Realtime monitoring lives at `/admin/analytics/realtime` with API route at `/api/admin/realtime` for client polling
+- Detailed analytics lives at `/admin/analytics/detailed` as a separate page linked from the overview page
+- Usage overview counts from `personas.created_at` and `creatives.created_at` (with `creative_type` distinguishing image/video)
+- For counting distinct users of child tables (personas, creatives, audiences, reports): use `brands!inner(user_id)` join + `Set<string>` to deduplicate user IDs
+- System settings stored as individual rows with TEXT PK (key name) and JSONB value; tier limits stored as `tier_limits_{tierName}` keys with JSONB objects
+- Filter out moderated content: `.not("moderation_status", "in", '("disabled","deleted")')` — PostgREST uses parenthesized string, not array
+- Disabled account check: query `user_profiles.disabled_at` after auth succeeds; if not null, sign out and show error
+- Impersonation uses HTTP-only cookies (`adforge-impersonate-id`, `adforge-impersonate-email`) set/cleared via server actions
+- API route for impersonation status check: GET `/api/admin/impersonation` returns `{ isImpersonating, userId, email }`; POST clears impersonation
+- ImpersonationProvider context wraps DashboardShell children — use `useImpersonation()` hook in any client component to check status
+- Read-only impersonation: event delegation on `<main>` element blocks button clicks and form submissions while allowing link navigation
+- Audit logs for impersonation: `impersonation_start` and `impersonation_end` actions with `target_email` in details
+
+---
+
+## 2026-01-28 - US-100
+- Created user_profiles table with admin role system
+- Files changed:
+  - `supabase/migrations/20260128000001_create_user_profiles_table.sql` (new)
+  - `lib/supabase/database.types.ts` (added user_profiles types)
+  - `scripts/ralph/prd.json` (marked US-100 passes: true)
+- **Learnings for future iterations:**
+  - user_profiles.id is a PK that directly references auth.users(id) — not a separate UUID with a user_id FK
+  - The `handle_new_user_profile()` trigger auto-creates profile rows for new signups with role='user'
+  - Use ON CONFLICT (id) DO UPDATE for upsert when setting admin role on existing users
+  - Service role bypasses RLS automatically; no explicit policy needed for service role access
+  - The `update_updated_at_column()` trigger function was already defined in the first migration and can be reused
+---
+
+## 2026-01-28 - US-101
+- Created audit_logs and system_settings tables
+- Files changed:
+  - `supabase/migrations/20260128000002_create_audit_logs_and_system_settings.sql` (new)
+  - `lib/supabase/database.types.ts` (added audit_logs and system_settings types + convenience aliases)
+  - `scripts/ralph/prd.json` (marked US-101 passes: true)
+- **Learnings for future iterations:**
+  - audit_logs has no updated_at — it's append-only (created_at only)
+  - system_settings uses TEXT primary key (the setting key), not a UUID
+  - For RLS where only service role should access: enable RLS with no policies — this blocks all user access while service role bypasses automatically
+  - system_settings RLS allows SELECT for all authenticated users (USING (true)), but no INSERT/UPDATE policies — so only service role can write
+  - Default JSONB values: cast literals with `'14'::jsonb`, `'false'::jsonb`, `'true'::jsonb` for scalar JSON values
+  - Use ON CONFLICT (key) DO NOTHING for idempotent seed inserts on text primary keys
+---
+
+## 2026-01-28 - US-102
+- Added moderation_status and moderation_notes columns to brands, personas, and creatives tables
+- Files changed:
+  - `supabase/migrations/20260128000003_add_moderation_columns.sql` (new)
+  - `lib/supabase/database.types.ts` (added moderation_status and moderation_notes to brands, personas, creatives Row/Insert/Update types)
+  - `scripts/ralph/prd.json` (marked US-102 passes: true)
+- **Learnings for future iterations:**
+  - ALTER TABLE ADD COLUMN IF NOT EXISTS with CHECK constraint and DEFAULT works in a single statement
+  - Moderation status values: 'active', 'flagged', 'disabled', 'deleted' — default is 'active'
+  - No RLS changes needed when adding new columns to existing tables — existing policies apply to all columns
+  - Indexes on moderation_status columns enable efficient filtered admin queries
+---
+
+## 2026-01-28 - US-103
+- Created admin Supabase client and auth utilities
+- Files changed:
+  - `lib/supabase/admin.ts` (new) — createAdminClient() using service role key
+  - `lib/auth/admin.ts` (new) — isAdmin(), requireAdmin(), createAuditLog()
+  - `scripts/ralph/prd.json` (marked US-103 passes: true)
+- **Learnings for future iterations:**
+  - Admin client uses `@supabase/supabase-js` createClient (not `@supabase/ssr`) since it doesn't need cookie handling
+  - The same pattern is already used in `app/api/webhooks/stripe/route.ts` for service role access
+  - requireAdmin() uses Next.js `redirect()` for unauthorized/forbidden — this throws internally so no return value on failure
+  - Use `as unknown as Json` for casting record objects to JSONB fields (established pattern)
+  - Use `as never` for Supabase insert calls to bypass type inference issues (established pattern)
+  - isAdmin() returns false for any error (user not found, DB error) — safe default
+---
+
+## 2026-01-28 - US-104
+- Created admin layout shell and navigation
+- Files changed:
+  - `app/(admin)/layout.tsx` (new) — server component with force-dynamic, requireAdmin() guard, passes admin user info to shell
+  - `app/(admin)/AdminShell.tsx` (new) — client component with sidebar navigation, amber/gold accent theme, responsive/collapsible sidebar
+  - `app/(admin)/admin/page.tsx` (new) — placeholder admin dashboard page
+  - `scripts/ralph/prd.json` (marked US-104 passes: true)
+- **Learnings for future iterations:**
+  - Admin layout uses route group `(admin)` with `admin/` as the URL prefix inside it — so `/admin` maps to `app/(admin)/admin/page.tsx`
+  - The admin shell mirrors DashboardShell patterns but swaps all `--color-plasma-violet` references to `--color-plasma-amber` (and rgba(139,92,246,...) to rgba(245,158,11,...))
+  - requireAdmin() already fetches the user session internally but only returns the userId — the layout fetches user info separately via createClient() for passing to the shell
+  - Admin nav items: Dashboard (/admin), Users (/admin/users), Content (/admin/content), Subscriptions (/admin/subscriptions), Analytics (/admin/analytics), System (/admin/system), Audit Log (/admin/audit-log)
+  - The `next lint` command is currently broken in this project (interprets "lint" as directory argument) — typecheck is the primary quality gate
+  - The AdminShell receives adminUser as a serializable prop from the server component (no client-side auth fetch needed)
+---
+
+## 2026-01-28 - US-105
+- Added admin link to user dashboard sidebar in DashboardShell
+- Files changed:
+  - `app/(dashboard)/DashboardShell.tsx` (modified) — added Shield icon import, isAdmin state, user_profiles role query, conditional admin link with amber/gold styling
+  - `scripts/ralph/prd.json` (marked US-105 passes: true)
+- **Learnings for future iterations:**
+  - Supabase browser client typed queries on user_profiles return `never` type — use `.single<{ role: string }>()` generic override to get proper types
+  - The RLS policy on user_profiles allows SELECT on own row, so browser client can query the current user's profile directly
+  - Admin link placed after nav items with a border-t separator, using amber/gold color (`var(--color-plasma-amber)`) and Shield icon to visually distinguish from regular nav
+  - isAdmin state defaults to false, so non-admin users never see the link (safe default)
+---
+
+## 2026-01-28 - US-106
+- Built admin overview dashboard with metric cards showing key platform metrics
+- Files changed:
+  - `lib/services/admin-metrics.ts` (new) — getPlatformMetrics() fetches all metrics with 30-day growth comparison
+  - `app/(admin)/admin/page.tsx` (replaced placeholder) — server component rendering 7 metric cards with holo-card styling
+  - `scripts/ralph/prd.json` (marked US-106 passes: true)
+- **Learnings for future iterations:**
+  - Use `{ count: "exact", head: true }` for efficient COUNT queries via Supabase — avoids fetching row data
+  - Growth comparison: current total vs total-at-30-days-ago for cumulative metrics (users, brands); current-period-sum vs previous-period-sum for usage metrics
+  - MRR calculated from tier distribution × tierPricing[tier].monthlyPrice (in cents) — no Stripe API call needed
+  - Admin metric cards use holo-card CSS class with inline accentColor style overrides for the icon container and border
+  - Server components can directly call admin service functions — no API route needed
+  - Supabase `select("col", { count: "exact", head: true })` returns `count` on the result object (not in data)
+  - Use `Promise.all()` to parallelize all independent Supabase queries for faster page loads
+---
+
+## 2026-01-28 - US-107
+- Built recent activity feed on admin overview dashboard showing latest 20 platform events
+- Files changed:
+  - `lib/services/admin-metrics.ts` (modified) — added getRecentActivity() function with ActivityEvent type, queries user sign-ups, subscription changes, brands, personas, and creatives
+  - `app/(admin)/admin/page.tsx` (modified) — added Recent Activity section with timeline-style list below metric cards, relative timestamps, type-based icons and colors
+  - `scripts/ralph/prd.json` (marked US-107 passes: true)
+- **Learnings for future iterations:**
+  - Use `admin.auth.admin.getUserById(uid)` to fetch user email from auth.users — Supabase admin client exposes auth admin API
+  - For cross-table activity feeds, collect all needed user IDs first, then batch-fetch emails via Promise.all of getUserById calls
+  - Personas and creatives don't have direct user_id — need brand_id → brands.user_id lookup to get the owning user
+  - Use `divide-y divide-white/5` on the holo-card container for subtle row separators in dark theme
+  - formatRelativeTime helper: compute diff in ms, then cascade through minutes/hours/days for human-readable timestamps
+  - Activity event IDs are prefixed with type (e.g., `user-{id}`, `brand-{id}`) to guarantee uniqueness across merged sources
+---
+
+## 2026-01-28 - US-108
+- Built user management list page with search, filters, sorting, and pagination
+- Files changed:
+  - `lib/services/admin-users.ts` (new) — getAdminUsers() service with search, filter, sort, pagination; joins user_profiles, auth.users, and subscriptions
+  - `app/(admin)/admin/users/page.tsx` (new) — server component reading URL search params, fetching data, rendering header with counts
+  - `app/(admin)/admin/users/UsersTable.tsx` (new) — client component with debounced search input, filter dropdowns (tier/role/status), sortable column headers, paginated table with row click navigation to /admin/users/[userId]
+  - `scripts/ralph/prd.json` (marked US-108 passes: true)
+- **Learnings for future iterations:**
+  - Search and tier filtering are done client-side after fetching because auth.users data (email/name) isn't queryable via Supabase DB filters — must batch-fetch via admin.auth.admin.getUserById
+  - URL search params persistence: use `useSearchParams()` + `useRouter().push()` with rebuilt URLSearchParams for filter state
+  - Debounced search: use useEffect + setTimeout ref pattern with 400ms delay; clear on unmount
+  - Sort toggle pattern: if same column clicked, toggle asc/desc; otherwise default to asc
+  - Badge components (StatusBadge, RoleBadge, TierBadge) use consistent color patterns: plasma-emerald for active, plasma-rose for disabled, plasma-amber for admin, white/10 for default
+  - `select` dropdowns need explicit dark theme styling: bg-white/[0.04] border-white/[0.08] with amber focus ring
+  - Table uses `divide-y divide-white/[0.04]` for subtle row separators matching existing admin patterns
+  - The `next lint` command is still broken — typecheck remains the primary quality gate
+---
+
+## 2026-01-28 - US-109
+- Built user detail page showing full profile, subscription, usage, and brands for a selected user
+- Files changed:
+  - `lib/services/admin-users.ts` (modified) — added getUserDetail() function with AdminUserDetail interface; fetches auth, profile, subscription, usage, and brands in parallel
+  - `app/(admin)/admin/users/[userId]/page.tsx` (new) — server component with breadcrumb navigation, profile section, subscription section, usage progress bars, and brands list
+  - `scripts/ralph/prd.json` (marked US-109 passes: true)
+- **Learnings for future iterations:**
+  - Use `maybeSingle()` instead of `single()` for subscriptions/usage queries that may not have a row (avoids error on missing data)
+  - Usage period_start is computed as first of current month in YYYY-MM-DD format for matching usage_tracking rows
+  - Intelligence reports don't have a limit column in usage_tracking — display with limit=-1 (unlimited/untracked)
+  - Badge components (StatusBadge, RoleBadge, TierBadge, ModerationBadge, SubscriptionStatusBadge) follow consistent color conventions across admin pages
+  - UsageBar component: color logic matches existing pattern — emerald (<80%), amber (80-99%), rose (100%)
+  - InfoRow component pattern: icon + label + value in a consistent layout for detail pages — reusable for future detail pages (brands, content)
+  - Breadcrumb navigation: Admin > Users > [email] using ChevronRight separator and Link components
+  - User avatar initials: split on whitespace or @ to handle email-only users
+  - `use(params)` with `Promise<{...}>` for Next.js 15 app router dynamic segments
+---
+
+## 2026-01-28 - US-110
+- Built user detail page management actions: change role, disable/enable account, delete account
+- Files changed:
+  - `app/(admin)/admin/users/[userId]/actions.ts` (new) — server actions for changeUserRole, disableUserAccount, enableUserAccount, deleteUserAccount with requireAdmin() checks and audit logging
+  - `app/(admin)/admin/users/[userId]/UserActions.tsx` (new) — client component with action buttons and ConfirmDialog for each action, delete requires email double-confirmation
+  - `app/(admin)/admin/users/[userId]/page.tsx` (modified) — imported and rendered UserActions component below the content grid
+  - `scripts/ralph/prd.json` (marked US-110 passes: true)
+- **Learnings for future iterations:**
+  - Server actions in Next.js 15 use `"use server"` directive at the top of the file — can export multiple async functions
+  - `useTransition` provides isPending state for server action calls — use it with `startTransition(async () => {...})` to wrap async calls
+  - `revalidatePath()` forces revalidation of a page path after server-side data changes — call before returning from the action
+  - `router.refresh()` on the client side refreshes RSC data without a full page reload — pair with `revalidatePath()` in the server action
+  - Delete requires double confirmation: ConfirmDialog with email input that must match exactly before the delete button works
+  - Use `as never` for Supabase update calls to bypass strict type inference (established pattern)
+  - Modal/dialog pattern: fixed inset-0 with backdrop-blur-sm overlay, relative centered dialog, separated header/body/footer with border-t
+---
+
+## 2026-01-28 - US-111
+- Built subscription override actions on user detail page: override tier, override limits, reset usage, extend trial
+- Files changed:
+  - `app/(admin)/admin/users/[userId]/actions.ts` (modified) — added 4 new server actions: overrideSubscriptionTier, overrideSubscriptionLimits, resetUsage, extendTrial; added OverrideLimitsPayload type and tierLimits import
+  - `app/(admin)/admin/users/[userId]/SubscriptionActions.tsx` (new) — client component with 4 action buttons and confirmation dialogs, each with reason field
+  - `app/(admin)/admin/users/[userId]/page.tsx` (modified) — imported and rendered SubscriptionActions component below UserActions, passing subscription and usage data
+  - `scripts/ralph/prd.json` (marked US-111 passes: true)
+- **Learnings for future iterations:**
+  - Override tier action also updates subscription limits to the new tier's defaults via tierLimits lookup — keeps limits in sync with tier
+  - Use `maybeSingle()` for subscription/usage queries in server actions to avoid PGRST116 errors when no row exists
+  - Subscription management section is separate from user management actions section — different holo-card with cyan accent (vs rose for management actions)
+  - ConfirmDialog can have a `confirmDisabled` prop to prevent confirming without required inputs (e.g., empty reason or unchanged tier)
+  - `extendTrial` adds days to the current `current_period_end` date — if null, falls back to today
+  - `resetUsage` finds the usage_tracking row by user_id + period_start (first of current month) — same pattern as user detail page
+  - All four subscription actions create targeted audit_logs with user_id and reason in the details JSONB field
+  - OverrideLimitsPayload is exported as an interface type from actions.ts so the client component can import it
+---
+
+## 2026-01-28 - US-112
+- Built subscriptions list page with filtering, sorting, pagination, and MRR/tier breakdown summary
+- Files changed:
+  - `lib/services/admin-subscriptions.ts` (new) — getAdminSubscriptions() service with tier breakdown, MRR calculation, filtering, sorting, and pagination
+  - `app/(admin)/admin/subscriptions/page.tsx` (new) — server component with summary cards (total subs, total MRR, tier breakdown) and table
+  - `app/(admin)/admin/subscriptions/SubscriptionsTable.tsx` (new) — client component with tier/status filter dropdowns, sortable column headers, pagination, row click to /admin/users/[userId]
+  - `scripts/ralph/prd.json` (marked US-112 passes: true)
+- **Learnings for future iterations:**
+  - Subscription MRR is calculated from tierPricing[tier].monthlyPrice — only count subscriptions with status 'active' or 'trialing'
+  - Tier breakdown is computed from ALL subscriptions (before filters) to show accurate platform-wide revenue summary
+  - The subscriptions table navigates to /admin/users/[userId] on row click (not a subscription detail page) since user detail already shows subscription info
+  - Reuse the same URL search params pattern (buildUrl, handleFilterChange, handleSort, handlePageChange) from UsersTable for consistency
+  - SubscriptionStatusBadge uses: emerald=active, cyan=trialing, amber=past_due, rose=canceled — matching the existing badge color conventions
+  - CalendarX icon from lucide-react used for cancel_at_period_end indicator
+  - For summary cards, use a 3-column grid layout with holo-card styling and different accent colors per card (amber, emerald, violet)
+---
+
+## 2026-01-28 - US-113
+- Built content moderation page with tab navigation (Brands, Personas, Creatives, Reports) and fully functional Brands tab
+- Files changed:
+  - `lib/services/admin-content.ts` (new) — getAdminBrands() service with search, moderation status filter, sorting, pagination; batch-fetches owner emails via admin auth API
+  - `app/(admin)/admin/content/page.tsx` (new) — server component with Shield header, reads searchParams, calls getAdminBrands, passes to ContentTabs
+  - `app/(admin)/admin/content/ContentTabs.tsx` (new) — client component with tab navigation (Brands/Personas/Creatives/Reports), delegates to active tab content; Personas, Creatives, Reports show "coming soon" placeholders
+  - `app/(admin)/admin/content/BrandsTab.tsx` (new) — client component with debounced search, moderation status filter dropdown, sortable columns (Owner Email, Brand Name, Industry, Created, Status), pagination, per-row ModerationMenu dropdown with Flag/Disable/Restore/Delete actions, ConfirmDialog with reason textarea for Flag/Disable actions
+  - `app/(admin)/admin/content/actions.ts` (new) — server actions updateModerationStatus() and deleteContent() with requireAdmin(), audit logging, moderation_notes append pattern
+  - `scripts/ralph/prd.json` (marked US-113 passes: true)
+- **Learnings for future iterations:**
+  - Content moderation uses a generic updateModerationStatus() action that accepts contentType ("brand" | "persona" | "creative") — reusable for US-114 and US-115
+  - Moderation notes are appended with timestamps: `[ISO_timestamp] status: reason` — each moderation action adds a line to the history
+  - The content page uses a `tab` URL search param to switch between content types; other params (search, status, sortBy, etc.) reset on tab change
+  - ModerationMenu uses a ref-based click-outside-to-close pattern with useEffect for document mousedown listener
+  - The "deleted" moderation status is a soft delete (sets moderation_status='deleted', does not remove the row)
+  - ConfirmDialog component with children slot allows flexible content (e.g., reason textarea for flag/disable, nothing for restore/delete)
+  - ContentTabs component structure: tab nav bar at top, then conditional rendering of tab content — each tab can be a separate component
+  - Search filter is applied AFTER email batch-fetch so we can search by owner email (not just brand name)
+---
+
+## 2026-01-28 - US-114
+- Built content moderation Personas tab with full moderation functionality
+- Files changed:
+  - `lib/services/admin-content.ts` (modified) — added AdminPersonaRow, AdminPersonasResult, AdminPersonasParams types and getAdminPersonas() service function with brand join, email lookup, search, filter, sort, pagination
+  - `app/(admin)/admin/content/PersonasTab.tsx` (new) — client component with photo thumbnail, debounced search (persona name / brand name / owner email), moderation status filter, sortable columns, pagination, per-row ModerationMenu dropdown (Flag/Disable/Restore/Delete), ConfirmDialog with reason textarea
+  - `app/(admin)/admin/content/ContentTabs.tsx` (modified) — added personasResult prop, imported PersonasTab, replaced placeholder with active PersonasTab component
+  - `app/(admin)/admin/content/page.tsx` (modified) — imported getAdminPersonas, fetches personas data when tab=personas, passes personasResult to ContentTabs
+  - `scripts/ralph/prd.json` (marked US-114 passes: true)
+- **Learnings for future iterations:**
+  - Personas don't have a direct user_id — use `brands!inner(name, user_id)` join to get the owning user and brand name in one query
+  - Cast the joined `brands` field: `p.brands as unknown as { name: string; user_id: string }` since Supabase types the inner join as a relation
+  - The existing actions.ts `updateModerationStatus()` and `deleteContent()` work for personas out of the box — they accept `contentType: "persona"` and map to the `personas` table
+  - PersonasTab follows identical pattern to BrandsTab but adds a Photo column with thumbnail (img or User icon fallback)
+  - The `tab` search param must be preserved in PersonasTab URL helpers (buildUrl, debounced search) to avoid accidentally switching back to brands tab
+---
+
+## 2026-01-28 - US-115
+- Built content moderation Creatives tab and Intelligence Reports tab
+- Files changed:
+  - `lib/services/admin-content.ts` (modified) — added AdminCreativeRow, AdminCreativesResult, AdminCreativesParams, AdminReportRow, AdminReportsResult, AdminReportsParams types; added getAdminCreatives() and getAdminReports() service functions with brand join, email lookup, search, filter, sort, pagination
+  - `app/(admin)/admin/content/CreativesTab.tsx` (new) — client component with thumbnail (image/video indicator), TypeBadge (image=cyan, video=violet), debounced search (type/brand/owner), moderation status filter, sortable columns, pagination, per-row ModerationMenu dropdown (Flag/Disable/Restore/Delete), ConfirmDialog with reason textarea
+  - `app/(admin)/admin/content/ReportsTab.tsx` (new) — client component (view-only, no moderation actions) with debounced search (brand/owner/report type), sortable columns (ownerEmail, brandName, reportType, generatedAt), StatusBadge, ReportTypeBadge, pagination
+  - `app/(admin)/admin/content/ContentTabs.tsx` (modified) — added creativesResult and reportsResult props, imported CreativesTab and ReportsTab, replaced placeholders with active components
+  - `app/(admin)/admin/content/page.tsx` (modified) — imported getAdminCreatives and getAdminReports, fetches data when tab=creatives or tab=reports, passes results to ContentTabs
+  - `scripts/ralph/prd.json` (marked US-115 passes: true)
+- **Learnings for future iterations:**
+  - Creatives use `creative_type` column (not `type`) — the field stores "image" or "video"
+  - Creatives also use `brands!inner(name, user_id)` join same as personas — same pattern for getting owner email
+  - The existing actions.ts `updateModerationStatus()` and `deleteContent()` work for creatives out of the box — they accept `contentType: "creative"` and map to the `creatives` table
+  - Intelligence reports don't have moderation columns — they use a simple `status` field (default 'active') and are view-only in the admin
+  - Reports use `generated_at` instead of `created_at` as the primary timestamp field — sort by `generatedAt` by default
+  - ReportsTab doesn't need a status filter dropdown since reports are view-only (no moderation status filtering needed)
+  - TypeBadge for creatives: cyan for image, violet for video — consistent with existing color conventions
+---
+
+## 2026-01-28 - US-116
+- Built audit log page with paginated table, search, filtering (action type, target type, date range), sortable columns, and expandable details
+- Files changed:
+  - `lib/services/admin-audit-logs.ts` (new) — getAdminAuditLogs() service with search, action/targetType/date filters, sorting, pagination; batch-fetches actor emails via admin auth API; exports KNOWN_ACTIONS and KNOWN_TARGET_TYPES constants
+  - `app/(admin)/admin/audit-log/page.tsx` (new) — server component reading URL searchParams, fetching data via service, rendering header and passing to AuditLogTable
+  - `app/(admin)/admin/audit-log/AuditLogTable.tsx` (new) — client component with debounced search input, action type dropdown, target type dropdown, date range pickers (from/to), sortable columns (Timestamp, Admin Email, Action, Target Type, Target ID), expandable details panel with JSON view, pagination (page size 50), clickable target ID links to relevant admin pages
+  - `scripts/ralph/prd.json` (marked US-116 passes: true)
+- **Learnings for future iterations:**
+  - Audit logs are read-only — no server actions needed, just a service + page + table component
+  - Date range filtering uses server-side `gte`/`lte` on created_at column — dateTo gets end-of-day (23:59:59.999) to include the full day
+  - Search is applied client-side after email batch-fetch to allow searching by actor email, target ID, action, and target type
+  - Expandable details use a Set<string> state tracking expanded row IDs — details are rendered in a separate div below the table to avoid breaking table layout
+  - ActionBadge color-coding: destructive actions (delete/disable) use rose, positive actions (enable/restore) use emerald, moderation actions use amber, others use cyan
+  - TargetTypeBadge uses lucide icons mapped by type: User, Package (brand), Palette (persona), ImageIcon (creative), CreditCard (subscription), BarChart3 (usage)
+  - Target ID links: user targets link to `/admin/users/[id]`, content targets link to `/admin/content`, subscription/usage targets return null (ID is row ID not user ID)
+  - Page size of 50 (larger than 20 used by users/subscriptions) per acceptance criteria
+  - KNOWN_ACTIONS and KNOWN_TARGET_TYPES exported as `as const` arrays from service for reuse in page and component
+---
+
+## 2026-01-28 - US-117
+- Installed recharts package and built basic analytics page with user growth and revenue charts
+- Files changed:
+  - `package.json` / `package-lock.json` (modified) — added recharts dependency
+  - `lib/services/admin-analytics.ts` (new) — getUserGrowthData() and getRevenueData() service functions with DateRange type, daily data point generation, cumulative user tracking, and MRR-by-tier breakdown
+  - `app/(admin)/admin/analytics/page.tsx` (new) — server component reading `range` search param, fetching data in parallel, rendering header and AnalyticsCharts client component
+  - `app/(admin)/admin/analytics/AnalyticsCharts.tsx` (new) — client component with date range selector (7d/30d/90d/1y), summary stat cards (total users, new users, current MRR), user growth line chart (new sign-ups + cumulative line), revenue stacked area chart (starter/professional/agency tiers), Recharts with dark theme styling and amber/gold/cyan/violet accent colors
+  - `scripts/ralph/prd.json` (marked US-117 passes: true)
+- **Learnings for future iterations:**
+  - Recharts requires `"use client"` directive since it uses React hooks internally — separate server data-fetching page from client chart components
+  - `ResponsiveContainer` from recharts needs explicit width="100%" and height="100%" and a parent with a fixed height (e.g., h-[350px])
+  - For dark theme Recharts: use tick={{ fill: "rgba(255,255,255,0.4)" }}, gridStroke "rgba(255,255,255,0.06)", and custom Tooltip with dark background
+  - Data thinning for large date ranges: thin points to ~45-52 for 90d/1y to keep charts legible, always include last point
+  - User growth chart uses dual Y-axes: left for new users (bar scale), right for cumulative (larger scale) — use yAxisId prop on both YAxis and Line components
+  - Revenue stacked area chart: use `stackId="1"` on all Area components for proper stacking, with linearGradient defs for fill
+  - Date range persists via URL search params (`?range=30d`) — same pattern as other admin pages
+  - `generateDateRange()` helper generates all dates between start and end (inclusive) for continuous chart x-axis
+  - MRR snapshot per day: iterate all subs, check if created before day end, and if still active (by checking if status changed after day) — simplified approximation
+  - CustomTooltip pattern: dark glassmorphism container with color dots matching the line/area colors and a formatter prop for value display
+---
+
+## 2026-01-28 - US-118
+- Built subscription distribution donut/pie chart and usage overview bar chart on analytics page
+- Files changed:
+  - `lib/services/admin-analytics.ts` (modified) — added getSubscriptionDistribution() and getUsageOverview() service functions with SubscriptionDistributionData, UsageOverviewData, UsageOverviewPoint types
+  - `app/(admin)/admin/analytics/page.tsx` (modified) — imported new service functions, fetches subscriptionDistribution and usageOverview in parallel, passes to AnalyticsCharts
+  - `app/(admin)/admin/analytics/AnalyticsCharts.tsx` (modified) — added PieChart/BarChart imports from recharts, TIER_COLORS map, custom PieTooltip and renderPieLabel, Subscription Distribution donut chart with percentage labels and legend, Usage Overview grouped bar chart with summary stat cards
+  - `scripts/ralph/prd.json` (marked US-118 passes: true)
+- **Learnings for future iterations:**
+  - Recharts PieChart donut: use `innerRadius` + `outerRadius` on `<Pie>` component, `<Cell>` for per-slice colors, custom `label` function for external labels
+  - Custom pie label uses RADIAN math to position text outside the donut; filter out slices with <3% to avoid label collision
+  - PieTooltip needs different shape than CustomTooltip — payload structure includes `payload.percentage` nested inside
+  - Subscription distribution fetches current active/trialing subs (no date range dependency), while usage overview respects the date range selector
+  - Usage overview counts daily generation from `personas.created_at` and `creatives.created_at` with `creative_type` for image vs video distinction
+  - Side-by-side layout: `grid grid-cols-1 lg:grid-cols-2 gap-6` for distribution (donut) and usage (bar) charts
+  - Usage summary cards above the bar chart: 3-column grid with tier-colored numbers (amber=personas, cyan=images, violet=videos)
+  - Bar chart uses grouped bars (no stackId) with `radius={[2,2,0,0]}` for rounded top corners
+---
+
+## 2026-01-28 - US-119
+- Built detailed analytics page with cohort retention table (heatmap), churn metrics section, and LTV metric cards
+- Files changed:
+  - `lib/services/admin-analytics.ts` (modified) — added getCohortRetentionData(), getChurnMetrics(), getLTVData() service functions with CohortRetentionData, ChurnMetricsData, LTVData types; added cohort-specific date helpers (toYearMonth, monthDiff, addMonths, monthEndDate)
+  - `app/(admin)/admin/analytics/detailed/page.tsx` (new) — server component with breadcrumb navigation, fetches cohort/churn/LTV data in parallel, renders DetailedAnalyticsCharts
+  - `app/(admin)/admin/analytics/detailed/DetailedAnalyticsCharts.tsx` (new) — client component with cohort retention heatmap table (green-to-red color coding), churn metrics summary cards (churn rate, churned count, active paid subs) with tier breakdown, LTV metric cards per tier (Starter/Professional/Agency) showing avg duration and calculated LTV
+  - `app/(admin)/admin/analytics/AnalyticsCharts.tsx` (modified) — added "Detailed Analytics" navigation link at bottom with ArrowRight icon
+  - `scripts/ralph/prd.json` (marked US-119 passes: true)
+- **Learnings for future iterations:**
+  - Cohort retention computed from subscriptions: group by created_at month, check if still active at month N by comparing updated_at for inactive subs
+  - For inactive subs, `updated_at > targetDate` approximates "was still active on that date" since status changes update the timestamp
+  - Churn only counts paid tiers (starter/professional/agency/enterprise) — free users aren't churning paying customers
+  - LTV = average subscription duration (months) × monthly price; use min 0.1 month to avoid zero duration for new subs
+  - Heatmap color thresholds: 80%+ emerald, 60-80% light emerald, 40-60% amber, 20-40% light amber, <20% rose
+  - Cohort table capped at last 12 months and max 12 retention columns for readability
+  - `monthEndDate()` helper uses `new Date(y, m, 0)` trick — day 0 of next month equals last day of current month
+  - Detailed analytics is a separate page (/admin/analytics/detailed) rather than a tab — keeps the main analytics page focused on overview charts
+  - Link from overview to detailed uses holo-card styling with hover effect for consistent navigation pattern
+---
+
+## 2026-01-28 - US-120
+- Built feature adoption horizontal progress bars and conversion funnel stepped bar chart on the detailed analytics page
+- Files changed:
+  - `lib/services/admin-analytics.ts` (modified) — added getFeatureAdoptionData() and getConversionFunnelData() service functions with FeatureAdoptionData, FeatureAdoptionItem, ConversionFunnelData, FunnelStage types; feature adoption queries distinct users across brands, personas, creatives (image/video), audiences, intelligence_reports; conversion funnel computes 5-stage pipeline from sign-up to paid subscription
+  - `app/(admin)/admin/analytics/detailed/page.tsx` (modified) — imported and fetches featureAdoption and conversionFunnel data in parallel, passes to DetailedAnalyticsCharts
+  - `app/(admin)/admin/analytics/detailed/DetailedAnalyticsCharts.tsx` (modified) — added Feature Adoption section (horizontal progress bars with color-coded percentages) and Conversion Funnel section (stepped bar chart with per-stage count, conversion rate, and dropoff percentage)
+  - `scripts/ralph/prd.json` (marked US-120 passes: true)
+- **Learnings for future iterations:**
+  - Personas, creatives, audiences, and intelligence_reports don't have direct user_id — use `brands!inner(user_id)` join to get the owning user, then cast `row.brands as unknown as { user_id: string }`
+  - Feature adoption uses distinct user ID sets (Set<string>) to count unique adopters per feature — avoids double-counting users with multiple items
+  - Conversion funnel stages are ordered: Sign-up → First Brand → First Persona → First Creative → Paid Subscription; dropoff = (prev_count - current_count) / prev_count
+  - For funnel bar width, use percentage of first stage (sign-up) with a minimum of 4% to keep bars visible even at low conversion
+  - Adoption bar color thresholds: >=50% emerald, >=25% cyan, >=10% amber, <10% rose
+  - Funnel stage colors cycle through brand palette: cyan → emerald → violet → amber → rose
+  - `extractUserIds()` helper is reusable for extracting user_id from any joined brand query result
+---
+
+## 2026-01-28 - US-121
+- Built real-time monitoring dashboard with live activity feed, active users, and generation stats
+- Files changed:
+  - `lib/services/admin-analytics.ts` (modified) — added RealtimeEvent, RealtimeGenerationStats, RealtimeData types; added getRealtimeData() service function that fetches events from last 5 minutes, active users from last 15 minutes, and today's generation stats with success rates
+  - `app/api/admin/realtime/route.ts` (new) — API route for polling realtime data, protected by admin role check (uses isAdmin directly instead of requireAdmin to avoid redirect in API context)
+  - `app/(admin)/admin/analytics/realtime/page.tsx` (new) — server component with breadcrumb navigation, fetches initial data, renders RealtimeMonitor client component
+  - `app/(admin)/admin/analytics/realtime/RealtimeMonitor.tsx` (new) — client component with auto-refresh toggle (30s interval, on by default), manual refresh button, last-updated timestamp, failure rate alert banner (>5% threshold), active users card, generation stats cards (personas/images/videos with success rates), scrolling live activity feed with type-based icons and relative timestamps
+  - `app/(admin)/admin/analytics/AnalyticsCharts.tsx` (modified) — added Real-time Monitoring navigation link alongside existing Detailed Analytics link in a 2-column grid
+  - `scripts/ralph/prd.json` (marked US-121 passes: true)
+- **Learnings for future iterations:**
+  - For polling endpoints, use API routes instead of server actions — client components can `fetch()` API routes on an interval
+  - Use `isAdmin()` instead of `requireAdmin()` in API routes — requireAdmin uses `redirect()` which throws a special Next.js error meant for pages, not API routes
+  - Active users approximation: check updated_at across user_profiles, brands, personas (via brand join), and creatives (via brand join) in last 15 minutes, deduplicate with Set
+  - Generation success rate: creatives have a `status` field that can be 'failed'; personas don't have failure tracking (assume 100%)
+  - Failure rate alert threshold: >5% overall creative failure rate triggers a red banner with AlertTriangle icon
+  - `useCallback` + `useRef` for interval management: store interval in ref, clear on cleanup, recreate when autoRefresh state toggles
+  - The `animate-pulse` Tailwind class on a small dot creates a nice "live" indicator effect
+  - Realtime page is at `/admin/analytics/realtime` — follows the pattern of detailed analytics at `/admin/analytics/detailed`
+---
+
+## 2026-01-28 - US-122
+- Built system settings page with editable platform-wide settings and tier limits
+- Files changed:
+  - `app/(admin)/admin/system/page.tsx` (new) — server component fetching system_settings rows, parsing scalars (default_trial_days, maintenance_mode, registration_enabled) and tier limits with safe defaults, rendering SystemSettingsForm
+  - `app/(admin)/admin/system/SystemSettingsForm.tsx` (new) — client component with ToggleSwitch for maintenance_mode and registration_enabled, number input for trial days, editable tier limits grid (free/starter/professional/agency × brands/personas/images/videos), dirty-state tracking, Save button with ConfirmDialog, success notification, error display
+  - `app/(admin)/admin/system/actions.ts` (new) — server action saveSystemSettings() that upserts all changed settings into system_settings table (scalar values + per-tier limit objects), compares old vs new for audit log, creates audit_logs entry with changes diff
+  - `scripts/ralph/prd.json` (marked US-122 passes: true)
+- **Learnings for future iterations:**
+  - System settings uses TEXT primary key (setting key name) — upsert with `onConflict: "key"` for idempotent saves
+  - Tier limits stored as separate `tier_limits_{tierName}` keys with JSONB objects containing brands_limit, personas_limit, images_limit, videos_limit
+  - JSONB values from system_settings need runtime type checking (`typeof stored === "object" && !Array.isArray(stored)`) since Json type is `string | number | boolean | null | { [key: string]: Json } | Json[]`
+  - ToggleSwitch component pattern: role="switch" + aria-checked + translate-x transition for accessible toggle
+  - isDirty check uses JSON.stringify comparison for nested objects (tierLimits) alongside simple equality for scalars
+  - Confirmation dialog for settings uses amber variant (warning style) since it's a configuration change, not a destructive action
+  - Auto-hiding success notification: `setTimeout(() => setSuccess(false), 3000)` after save succeeds
+  - Audit log only records changed settings (JSON.stringify diff of old vs new values) to keep logs meaningful
+---
+
+## 2026-01-28 - US-123
+- Implemented user impersonation: admin can view the dashboard as any user in read-only mode
+- Files changed:
+  - `lib/auth/impersonation.ts` (new) — server-side impersonation cookie utilities: getImpersonation(), setImpersonation(), clearImpersonation()
+  - `lib/context/impersonation-context.tsx` (new) — React context provider + useImpersonation() hook for client components
+  - `app/api/admin/impersonation/route.ts` (new) — API route for checking/clearing impersonation status (GET=status, POST=clear)
+  - `app/(admin)/admin/users/[userId]/actions.ts` (modified) — added startImpersonation() server action with audit logging
+  - `app/(admin)/admin/users/[userId]/UserActions.tsx` (modified) — added Impersonate button with Eye icon and confirmation dialog
+  - `app/(dashboard)/DashboardShell.tsx` (modified) — added impersonation banner (amber, fixed top), exit button, ImpersonationProvider context wrapper, event delegation to block button clicks and form submissions during impersonation
+  - `scripts/ralph/prd.json` (marked US-123 passes: true)
+- **Learnings for future iterations:**
+  - HTTP-only cookies (`adforge-impersonate-id`, `adforge-impersonate-email`) are the right mechanism for impersonation — they survive page navigations, are invisible to client JS, and can be set/read in server actions and API routes
+  - Use `cookies()` from `next/headers` for server-side cookie access; delete cookies by setting maxAge: 0
+  - The impersonation API route uses `isAdmin()` instead of `requireAdmin()` — API routes need JSON responses, not redirects
+  - Event delegation with capture phase (`addEventListener(type, handler, true)`) is an effective way to globally block button clicks and form submissions without modifying individual components
+  - Cannot impersonate yourself — checked in server action to prevent confusion
+  - ImpersonationProvider wraps all DashboardShell children — any future component can use `useImpersonation()` hook for more granular read-only checks
+  - The impersonation banner uses `z-[60]` (above sidebar z-50) with `fixed top-0` and the rest of the layout shifts down via `mt-[44px]`
+  - Exit impersonation redirects to `/admin/users/[targetId]` — the admin returns to the user they were viewing
+---
+
+## 2026-01-28 - US-124
+- Integrated disabled account check into login flow and filtered moderated content from user-facing pages
+- Files changed:
+  - `app/(auth)/login/page.tsx` (modified) — after signInWithPassword succeeds, queries user_profiles for disabled_at; if set, signs out and shows "Account disabled. Contact support." error
+  - `app/(auth)/callback/route.ts` (modified) — after OAuth code exchange, queries user_profiles for disabled_at; if set, signs out and redirects to login with error
+  - `app/(dashboard)/DashboardShell.tsx` (modified) — on mount, queries disabled_at alongside role; if disabled, signs out and redirects to login with error (catches already-logged-in disabled users)
+  - `app/actions/brands.ts` (modified) — getBrands() now filters out brands with moderation_status 'disabled' or 'deleted' via `.not("moderation_status", "in", '("disabled","deleted")')`
+  - `app/actions/personas.ts` (modified) — getPersonas() now filters out moderated personas same pattern
+  - `app/actions/creatives.ts` (modified) — getCreatives() now filters out moderated creatives same pattern
+  - `app/(dashboard)/brands/page.tsx` (modified) — BrandCard shows amber warning banner with AlertTriangle icon when brand moderation_status is 'flagged'
+  - `components/personas/PersonasList.tsx` (modified) — PersonaCard shows amber flagged overlay badge on photo and "Flagged for review" text label when persona is flagged
+  - `components/creatives/CreativesGallery.tsx` (modified) — CreativeCard shows amber flagged badge on thumbnail when creative is flagged
+  - `scripts/ralph/prd.json` (marked US-124 passes: true)
+- **Learnings for future iterations:**
+  - Supabase `.not("col", "in", '("val1","val2")')` syntax uses parenthesized comma-separated values in a string — this is PostgREST filter syntax, not array syntax
+  - Use `.maybeSingle()` in the callback route for disabled_at check since new users won't have a profile row yet (the trigger creates it after)
+  - DashboardShell should also check disabled_at on mount — this catches cases where a user was already logged in when their account was disabled
+  - For flagged content warnings, use amber/gold color (`rgb(245, 158, 11)`) with AlertTriangle icon — consistent with admin dashboard warning conventions
+  - Login page (client component) uses `.single<{ disabled_at: string | null }>()` generic for typed query result
+  - Callback route (server component) uses `.maybeSingle()` without generic since it casts the result with `as` instead
+---
+>>>>>>> origin/ralph/admin-dashboard

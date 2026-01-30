@@ -1,0 +1,1113 @@
+# Ralph Progress Log
+Started: Mon Jan 26 14:50:16 PST 2026
+---
+
+## 2026-01-27 - US-039: Create product creation form
+- What was implemented:
+  - Created `app/(dashboard)/brands/[id]/products/new/page.tsx` with comprehensive product creation form
+  - Product Type selector with 10 product type options (Physical, Digital, Service, Subscription, etc.)
+  - Required fields: Name, Short Description (max 160 chars with counter), Full Description (textarea)
+  - Optional fields: SKU, Price with $ prefix, Price Range dropdown
+  - Multi-file image upload section:
+    - Drag and drop or click to upload interface
+    - Accepts PNG, JPEG, WebP, GIF up to 10MB
+    - Image preview grid with alt text editing
+    - Primary image designation with star button
+    - Remove image functionality
+    - Uploads to Supabase Storage `product-images` bucket
+    - Minimum 3 images required validation
+  - Optional videos section (collapsible):
+    - Add video entries with URL, title, thumbnail URL
+    - Remove video functionality
+  - Marketing attributes section (collapsible):
+    - Unique Value Proposition (UVP) textarea with 500 char limit
+    - Key Benefits list (dynamic add/remove, max 10)
+    - Target Problems list (dynamic add/remove, max 10)
+    - Competitive Advantages list (dynamic add/remove, max 10)
+    - Social Proof list (dynamic add/remove, max 10)
+  - Form validation with error display
+  - Submit creates product via createProduct action
+  - Redirects to product detail page on success
+  - Responsive design for mobile
+- Files changed:
+  - app/(dashboard)/brands/[id]/products/new/page.tsx (new)
+- **Learnings for future iterations:**
+  - Product images go to `product-images` bucket with path `{user_id}/products/{brand_id}/{timestamp}.{ext}`
+  - Use `URL.createObjectURL(file)` for immediate preview before upload
+  - Multi-file input uses `multiple` attribute and iterates `e.target.files`
+  - For primary image designation, use `.isPrimary` property in image array
+  - Marketing attributes use dynamic list pattern with add/remove buttons
+  - Collapsible sections help reduce visual clutter for optional fields
+---
+
+## 2026-01-27 - US-040: Create product detail page
+- What was implemented:
+  - Created `app/(dashboard)/brands/[id]/products/[productId]/page.tsx` with full product detail view
+  - Image gallery component:
+    - Main image display with primary badge
+    - Thumbnail strip for navigation between images
+    - Sorted by isPrimary then sortOrder
+    - Empty state when no images
+  - Product information display:
+    - Name, product type badge, price/price range
+    - SKU (monospace), short description, full description
+    - Videos section with external links
+  - Variants section with full CRUD:
+    - Add variant modal with name, SKU, price, and dynamic attributes
+    - Edit variant functionality
+    - Delete variant with confirmation
+    - Real-time save to database via updateProduct action
+    - Success toast notifications
+  - Marketing attributes display:
+    - UVP with styled blockquote
+    - Key Benefits, Target Problems, Competitive Advantages as bullet lists
+    - Social Proof as styled testimonial quotes
+  - Delete product with confirmation modal
+  - Edit product button linking to /edit page
+  - Metadata section showing created/updated dates
+  - Responsive design with two-column layout
+- Files changed:
+  - app/(dashboard)/brands/[id]/products/[productId]/page.tsx (new)
+- **Learnings for future iterations:**
+  - Use `!= null` instead of `!== null` to catch both null and undefined in TypeScript
+  - Parse JSON fields from database into typed arrays/objects in a parseProduct function
+  - Use inline modals for CRUD operations on sub-entities (variants) to avoid page navigation
+  - Success toast with slideIn animation provides good feedback for inline saves
+  - Two-column layout works well for product detail: gallery on left, info on right
+---
+
+## 2026-01-27 - US-001: Create database schema for brands table
+- What was implemented:
+  - Verified existing migration at `supabase/migrations/20260126000001_create_brands_table.sql`
+  - All required columns present: id (UUID), user_id (UUID FK to auth.users), name, business_type, industry, sub_industry, website, social_profiles (JSONB), logo_url, logo_variants (JSONB), visual_guidelines (JSONB), voice_tone (JSONB), created_at, updated_at
+  - Index on user_id: `idx_brands_user_id`
+  - RLS enabled with four policies: SELECT, INSERT, UPDATE, DELETE - all using `auth.uid() = user_id`
+  - Trigger for automatic updated_at column updates
+  - Typecheck passes
+- Files changed:
+  - None - migration already existed
+- **Learnings for future iterations:**
+  - Database migrations are in `supabase/migrations/` directory with timestamp prefixes
+  - Use `CREATE TABLE IF NOT EXISTS` and `CREATE INDEX IF NOT EXISTS` for idempotent migrations
+  - RLS policies need separate policies for each operation (SELECT, INSERT, UPDATE, DELETE)
+  - UPDATE policies need both USING (for which rows can be selected for update) and WITH CHECK (for the new row data)
+  - Use `gen_random_uuid()` for UUID default values in Postgres
+---
+
+## 2026-01-27 - US-002: Create database schema for products table
+- What was implemented:
+  - Verified existing migration at `supabase/migrations/20260126000002_create_products_table.sql`
+  - All required columns present: id (UUID), brand_id (UUID FK), product_type, name, short_description (160 chars), full_description, sku, price (DECIMAL 10,2), price_range, images (JSONB), videos (JSONB), variants (JSONB), marketing_attributes (JSONB), created_at, updated_at
+  - Foreign key to brands with `ON DELETE CASCADE`
+  - Index on brand_id: `idx_products_brand_id`
+  - RLS enabled with four policies (SELECT/INSERT/UPDATE/DELETE) that join through brands table to check ownership
+  - Trigger for automatic updated_at column updates via `update_updated_at_column()`
+  - Typecheck passes
+- Files changed:
+  - None - migration already existed
+- **Learnings for future iterations:**
+  - Products table RLS checks ownership through brands table join: `EXISTS (SELECT 1 FROM brands WHERE brands.id = products.brand_id AND brands.user_id = auth.uid())`
+  - This pattern is required for tables that don't have direct user_id column - must join through parent table
+  - JSONB columns use DEFAULT '[]' for arrays and DEFAULT '{}' for objects
+---
+
+## 2026-01-27 - US-003: Create database schema for intelligence_reports table
+- What was implemented:
+  - Verified existing migration at `supabase/migrations/20260126000003_create_intelligence_reports_table.sql`
+  - All required columns present:
+    - id (UUID PRIMARY KEY DEFAULT gen_random_uuid())
+    - brand_id (UUID NOT NULL FK to brands ON DELETE CASCADE)
+    - product_id (UUID FK nullable to products ON DELETE SET NULL)
+    - report_type (VARCHAR 50)
+    - generated_at (TIMESTAMPTZ NOT NULL DEFAULT NOW())
+    - expires_at (TIMESTAMPTZ)
+    - status (VARCHAR 20 NOT NULL DEFAULT 'active')
+    - competitors, search_trends, industry_news, social_conversations (JSONB DEFAULT '[]')
+    - audience_insights (JSONB DEFAULT '{}')
+    - sources (JSONB DEFAULT '[]')
+    - created_at, updated_at (TIMESTAMPTZ NOT NULL DEFAULT NOW())
+  - Foreign keys: brand_id cascades on delete, product_id sets null on delete
+  - Indexes: idx_intelligence_reports_brand_id, idx_intelligence_reports_product_id
+  - RLS policies for SELECT/INSERT/UPDATE/DELETE via brands ownership check
+  - Trigger: update_intelligence_reports_updated_at
+  - Typecheck passes
+- Files changed:
+  - None - migration already existed
+- **Learnings for future iterations:**
+  - For nullable FK relationships (like product_id), use ON DELETE SET NULL instead of CASCADE
+  - Intelligence reports have a status field that defaults to 'active' - can be used for soft-delete or archiving
+  - The expires_at field allows reports to be marked as stale after a period
+  - Market intelligence data structures: competitors (array), trends (array), insights (object)
+---
+
+## 2026-01-27 - US-004: Create database schema for personas table
+- What was implemented:
+  - Verified existing migration at `supabase/migrations/20260126000004_create_personas_table.sql`
+  - All required columns present:
+    - id (UUID PRIMARY KEY DEFAULT gen_random_uuid())
+    - brand_id (UUID NOT NULL FK to brands ON DELETE CASCADE)
+    - product_id (UUID FK nullable to products ON DELETE SET NULL)
+    - intelligence_report_id (UUID FK nullable to intelligence_reports ON DELETE SET NULL)
+    - name (VARCHAR 100 NOT NULL)
+    - photo_prompt (TEXT), photo_url (VARCHAR 500)
+    - backstory (TEXT), quote (VARCHAR 500), day_in_life (TEXT)
+    - demographics, professional, psychographics, lifestyle, media_tech, buying_behavior (JSONB DEFAULT '{}')
+    - beliefs_attitudes (JSONB nullable - no default)
+    - generation_model (VARCHAR 100 DEFAULT 'claude-haiku-4-5')
+    - generation_params (JSONB DEFAULT '{}')
+    - validation_status (VARCHAR 20 DEFAULT 'pending')
+    - validation_notes (TEXT)
+    - created_at, updated_at (TIMESTAMPTZ NOT NULL DEFAULT NOW())
+  - Foreign keys with appropriate cascade:
+    - brand_id: ON DELETE CASCADE
+    - product_id: ON DELETE SET NULL
+    - intelligence_report_id: ON DELETE SET NULL
+  - Indexes: idx_personas_brand_id, idx_personas_product_id
+  - RLS policies for SELECT/INSERT/UPDATE/DELETE via brands ownership check
+  - Trigger: update_personas_updated_at
+  - Typecheck passes
+- Files changed:
+  - None - migration already existed
+- **Learnings for future iterations:**
+  - Personas connect to brands (required), products (optional), and intelligence_reports (optional)
+  - Multiple optional FK fields use ON DELETE SET NULL pattern
+  - JSONB DEFAULT '{}' for object fields, but nullable fields like beliefs_attitudes have no default
+  - validation_status field with default 'pending' allows workflow for reviewing generated personas
+  - generation_model tracks which AI model created the persona
+---
+
+## 2026-01-27 - US-005: Create database schema for audiences table
+- What was implemented:
+  - Verified existing migration at `supabase/migrations/20260126000005_create_audiences_table.sql`
+  - All required columns present:
+    - id (UUID PRIMARY KEY DEFAULT gen_random_uuid())
+    - persona_id (UUID NOT NULL FK to personas ON DELETE CASCADE)
+    - brand_id (UUID NOT NULL FK to brands ON DELETE CASCADE)
+    - name (VARCHAR 255 NOT NULL)
+    - meta_targeting, google_targeting, linkedin_targeting, tiktok_targeting, pinterest_targeting, snapchat_targeting (JSONB DEFAULT '{}')
+    - size_estimates (JSONB DEFAULT '{}')
+    - last_exported_at (TIMESTAMPTZ nullable)
+    - export_count (INTEGER NOT NULL DEFAULT 0)
+    - created_at, updated_at (TIMESTAMPTZ NOT NULL DEFAULT NOW())
+  - Foreign keys: both persona_id and brand_id ON DELETE CASCADE
+  - Indexes: idx_audiences_persona_id, idx_audiences_brand_id
+  - RLS policies for SELECT/INSERT/UPDATE/DELETE via brands ownership check
+  - Trigger: update_audiences_updated_at
+  - Typecheck passes
+- Files changed:
+  - None - migration already existed
+- **Learnings for future iterations:**
+  - Audiences connect to both personas (required) and brands (required) for double-linking
+  - Both FK relationships use ON DELETE CASCADE since audiences are meaningless without their persona/brand
+  - Six platform targeting fields: meta, google, linkedin, tiktok, pinterest, snapchat
+  - export_count and last_exported_at track usage for analytics
+---
+
+## 2026-01-27 - US-006: Create database schema for creatives table
+- What was implemented:
+  - Verified existing migration at `supabase/migrations/20260126000006_create_creatives_table.sql`
+  - All required columns present:
+    - id (UUID PRIMARY KEY DEFAULT gen_random_uuid())
+    - brand_id (UUID NOT NULL FK to brands ON DELETE CASCADE)
+    - product_id (UUID FK nullable to products ON DELETE SET NULL)
+    - persona_id (UUID FK nullable to personas ON DELETE SET NULL)
+    - audience_id (UUID FK nullable to audiences ON DELETE SET NULL)
+    - creative_type (VARCHAR 20 NOT NULL)
+    - subtype (VARCHAR 50)
+    - file_url (VARCHAR 500 NOT NULL)
+    - thumbnail_url (VARCHAR 500 nullable)
+    - file_size (INTEGER nullable)
+    - dimensions (JSONB nullable)
+    - duration_seconds (INTEGER nullable for videos)
+    - generation_prompt (TEXT NOT NULL)
+    - generation_params (JSONB DEFAULT '{}')
+    - generation_model (VARCHAR 100 NOT NULL)
+    - generation_cost (DECIMAL 10,4 nullable)
+    - headline, subheadline (VARCHAR 255 nullable)
+    - cta (VARCHAR 100 nullable)
+    - body_copy (TEXT nullable)
+    - status (VARCHAR 20 DEFAULT 'generated')
+    - rating (INTEGER nullable for user ratings)
+    - tags (JSONB DEFAULT '[]')
+    - created_at, updated_at (TIMESTAMPTZ DEFAULT NOW())
+  - Foreign keys with appropriate cascade:
+    - brand_id: ON DELETE CASCADE (required relationship)
+    - product_id: ON DELETE SET NULL (optional)
+    - persona_id: ON DELETE SET NULL (optional)
+    - audience_id: ON DELETE SET NULL (optional)
+  - Indexes:
+    - idx_creatives_brand_id (for fast brand-scoped queries)
+    - idx_creatives_persona_id (for filtering by persona)
+    - idx_creatives_type_subtype (composite for creative_type + subtype filtering)
+  - RLS policies for SELECT/INSERT/UPDATE/DELETE via brands ownership check
+  - Trigger: update_creatives_updated_at
+  - Typecheck passes
+- Files changed:
+  - None - migration already existed and was committed previously
+- **Learnings for future iterations:**
+  - Creatives table has 4 optional FK fields (product_id, persona_id, audience_id) all using ON DELETE SET NULL
+  - Composite index on (creative_type, subtype) enables efficient filtering by type
+  - Fields like headline, subheadline, cta, body_copy allow storing ad copy alongside creative files
+  - generation_cost (DECIMAL 10,4) tracks API costs per creative for usage analytics
+  - rating (INTEGER) allows 1-5 star ratings from users
+  - status field enables workflow states: 'generated', 'approved', 'rejected', etc.
+---
+
+## 2026-01-27 - US-007: Create database schema for subscriptions table
+- What was implemented:
+  - Verified existing migration at `supabase/migrations/20260126000007_create_subscriptions_table.sql`
+  - All required columns present:
+    - id (UUID PRIMARY KEY DEFAULT gen_random_uuid())
+    - user_id (UUID NOT NULL FK to auth.users ON DELETE CASCADE)
+    - stripe_customer_id (VARCHAR 255 NOT NULL)
+    - stripe_subscription_id (VARCHAR 255 nullable)
+    - stripe_price_id (VARCHAR 255 nullable)
+    - tier (VARCHAR 50 DEFAULT 'free' NOT NULL)
+    - status (VARCHAR 50 DEFAULT 'active' NOT NULL)
+    - current_period_start, current_period_end (TIMESTAMPTZ nullable)
+    - cancel_at_period_end (BOOLEAN DEFAULT false NOT NULL)
+    - brands_limit (INTEGER DEFAULT 1 NOT NULL)
+    - personas_limit (INTEGER DEFAULT 5 NOT NULL)
+    - images_limit (INTEGER DEFAULT 20 NOT NULL)
+    - videos_limit (INTEGER DEFAULT 5 NOT NULL)
+    - created_at, updated_at (TIMESTAMPTZ DEFAULT NOW() NOT NULL)
+  - Unique index on user_id: `idx_subscriptions_user_id` (enforces one subscription per user)
+  - Index on stripe_customer_id: `idx_subscriptions_stripe_customer_id` (for Stripe lookups)
+  - RLS policies for SELECT/INSERT/UPDATE/DELETE using `user_id = auth.uid()`
+  - Trigger: update_subscriptions_updated_at
+  - Typecheck passes
+- Files changed:
+  - None - migration already existed
+- **Learnings for future iterations:**
+  - Subscriptions table uses direct FK to auth.users (unlike products/personas which go through brands)
+  - UNIQUE index on user_id ensures one subscription record per user
+  - Default limits: 1 brand, 5 personas, 20 images, 5 videos (free tier)
+  - tier field stores pricing tier: 'free', 'starter', 'professional', 'agency'
+  - status field tracks subscription status: 'active', 'past_due', 'canceled', etc.
+---
+
+## 2026-01-27 - US-008: Create database schema for usage_tracking table
+- What was implemented:
+  - Verified existing migration at `supabase/migrations/20260126000008_create_usage_tracking_table.sql`
+  - All required columns present:
+    - id (UUID PRIMARY KEY DEFAULT gen_random_uuid())
+    - user_id (UUID NOT NULL FK to auth.users ON DELETE CASCADE)
+    - period_start (DATE NOT NULL)
+    - period_end (DATE NOT NULL)
+    - personas_generated (INTEGER DEFAULT 0 NOT NULL)
+    - images_generated (INTEGER DEFAULT 0 NOT NULL)
+    - videos_generated (INTEGER DEFAULT 0 NOT NULL)
+    - intelligence_reports (INTEGER DEFAULT 0 NOT NULL)
+    - personas_limit (INTEGER NOT NULL)
+    - images_limit (INTEGER NOT NULL)
+    - videos_limit (INTEGER NOT NULL)
+    - created_at, updated_at (TIMESTAMPTZ DEFAULT NOW() NOT NULL)
+  - Unique constraint: `idx_usage_tracking_user_period` on (user_id, period_start)
+  - Indexes: idx_usage_tracking_user_id, idx_usage_tracking_period_start
+  - RLS policies for SELECT/INSERT/UPDATE/DELETE using user_id = auth.uid()
+  - Trigger: update_usage_tracking_updated_at
+  - Typecheck passes
+- Files changed:
+  - None - migration already existed and was previously committed
+- **Learnings for future iterations:**
+  - Usage tracking is per-period (period_start, period_end) to support billing cycles
+  - Unique constraint on (user_id, period_start) prevents duplicate period records
+  - Limits are copied to each usage record from subscription at period start
+  - Both usage counts and limits stored together for easy limit enforcement
+  - Unlike subscriptions table (one per user), usage_tracking has multiple records per user (one per period)
+---
+
+## 2026-01-27 - US-009: Set up Supabase storage buckets
+- What was implemented:
+  - Verified existing migration at `supabase/migrations/20260126000009_create_storage_buckets.sql`
+  - Five storage buckets created:
+    - brand-assets: 5MB limit, SVG/PNG/JPEG/WebP, for logos
+    - product-images: 10MB limit, PNG/JPEG/WebP/GIF, for product photos
+    - persona-photos: 10MB limit, PNG/JPEG/WebP, for AI-generated persona images
+    - creatives: 100MB limit, images + videos (MP4/WebM/QuickTime), for generated content
+    - exports: 50MB limit, JSON/CSV/PDF/ZIP, for audience and report exports
+  - All buckets are private (public: false)
+  - RLS policies for each bucket: SELECT, INSERT, UPDATE, DELETE
+  - Ownership check pattern: `auth.uid()::text = (storage.foldername(name))[1]`
+  - Idempotent using `ON CONFLICT (id) DO NOTHING`
+  - Typecheck passes
+- Files changed:
+  - None - migration already existed and was previously committed
+- **Learnings for future iterations:**
+  - Storage buckets use folder structure with user_id as first folder: `{user_id}/...`
+  - RLS policies on storage.objects use `storage.foldername(name)` to extract path parts
+  - `(storage.foldername(name))[1]` gets the first folder (user_id) from the path
+  - Different file size limits per bucket based on expected content (5MB logos, 100MB videos)
+  - allowed_mime_types array restricts file types per bucket
+  - creatives bucket handles both images and videos with appropriate MIME types
+---
+
+## 2026-01-27 - US-041: Create intelligence report generation API route
+- What was implemented:
+  - Created `app/api/generate/intelligence/route.ts` with POST and GET handlers
+  - POST endpoint generates intelligence reports:
+    - Accepts brand_id (required), product_id (optional), report_type (optional)
+    - Validates user ownership of brand
+    - Calls gatherAllIntelligence from BrightData API for all data types:
+      - searchCompetitors: competitor analysis
+      - getSearchTrends: keyword trend data
+      - getIndustryNews: recent news articles
+      - getSocialConversations: social media mentions
+      - getAudienceInsights: audience segment data
+    - Compiles all sources with attribution (URL, name, timestamp, confidence)
+    - Saves report to database with 30-day expiration
+    - Increments usage_tracking.intelligence_reports count
+  - GET endpoint lists existing reports for a brand
+  - Uses typed IntelligenceReportInsert and proper Json casting
+  - Full authentication and authorization checks
+- Files changed:
+  - app/api/generate/intelligence/route.ts (new)
+- **Learnings for future iterations:**
+  - Use `as unknown as Json` for type casting complex objects to JSONB fields
+  - Use `as never` for Supabase insert calls to bypass type inference issues
+  - Cast returned data with `as Type` (e.g., `as IntelligenceReport`)
+  - Follow the pattern from brands.ts actions for Supabase type handling
+  - BrightData API returns BrightDataResponse<T> which can be success or error
+---
+
+## 2026-01-27 - US-042: Create intelligence tab with report display
+- What was implemented:
+  - Created `components/intelligence/IntelligenceTab.tsx` with comprehensive report display
+  - Generate Report button with loading state during API call
+  - Report header showing title, type, generation date, and expiration status
+  - Collapsible sections for all intelligence data types:
+    - **CompetitorsSection**: Grid of cards with name, description, market position, strengths, USPs, website link, source confidence
+    - **TrendsSection**: List with keyword, trend direction (rising/stable/declining icons), volume, percentage, competition level badges, related keywords
+    - **NewsSection**: Article cards with publisher, date, title (linked), summary, category, sentiment indicator
+    - **SocialSection**: Platform-grouped conversations with author, content, hashtags, engagement stats (likes/comments/shares), view link
+    - **AudienceSection**: Segment cards with demographics, interests (tags), pain points (tags)
+  - SourcesSection showing deduplicated data sources with confidence percentages
+  - Refresh button to regenerate report (calls POST /api/generate/intelligence)
+  - Report expiration visual indicators (green/yellow/red for valid/expiring/expired)
+  - State handling: loading, generating, empty, error states with appropriate UI
+  - Integrated into brand detail page, replacing PlaceholderTab
+- Files changed:
+  - components/intelligence/IntelligenceTab.tsx (new, ~1850 lines)
+  - app/(dashboard)/brands/[id]/page.tsx (import and use IntelligenceTab)
+- **Learnings for future iterations:**
+  - Parse JSONB fields from database using a helper function (parseReport) for type safety
+  - Use expandedSections state object for managing multiple collapsible sections
+  - For confidence scores, multiply by 100 and round: `Math.round((source.confidence || 0) * 100)`
+  - Deduplicate sources using Map: `Array.from(new Map(sources.map(s => [s.url, s])).values())`
+  - Use CSS-in-JS with template literals for component-specific styles
+  - Calculate days until expiration: `Math.ceil((expirationDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))`
+  - Use semantic icons (rising/declining arrows) for trend visualization
+  - Platform-specific icons (Twitter, Reddit) enhance social media section readability
+---
+
+## 2026-01-27 - US-043: Create persona generation API route
+- What was implemented:
+  - Created `app/api/generate/persona/route.ts` with POST and GET handlers
+  - POST endpoint generates personas via OpenRouter:
+    - Accepts brand_id (required), product_id (optional), intelligence_report_id (optional), count (1-5)
+    - Validates user ownership of brand
+    - Checks quota via checkPersonaQuota before generation
+    - Builds PersonaGenerationContext from brand, product, intelligenceReport
+    - Calls generatePersonas from lib/api/openrouter.ts (uses Claude Haiku 4.5)
+    - Validates generated personas against Zod personaSchema
+    - validateSpecificValues ensures age/income/householdSize are numbers (not ranges)
+    - validateSpecificValues checks location is specific (e.g., "Austin, Texas")
+    - Personas with non-specific values get validation_status: "needs_revision"
+    - personaToInsert converts PersonaInput to PersonaInsert for database
+    - Saves personas with proper JSON field casting (as unknown as Json)
+    - incrementPersonaUsage updates usage_tracking after successful generation
+    - Returns 429 with remaining/limit if quota exceeded
+  - GET endpoint lists personas for a brand with optional filters:
+    - Filter by product_id
+    - Filter by validation_status
+    - Ordered by created_at descending
+- Files changed:
+  - app/api/generate/persona/route.ts (new, ~450 lines)
+- **Learnings for future iterations:**
+  - Use `as unknown as Json` pattern for casting complex objects to JSONB fields
+  - Use `as never` for Supabase insert calls to bypass type inference issues
+  - Quota check pattern: return 429 with { error, remaining, limit } when exceeded
+  - Create usage record if it doesn't exist (copy limits from subscription)
+  - Period dates: periodStart = first of month, periodEnd = last of month
+  - generatePersonas returns { success, personas, errors, usage } - handle partial success
+  - personaSchema.safeParse for validation, then additional validateSpecificValues check
+  - Mark personas as "needs_revision" instead of rejecting when values aren't specific enough
+---
+
+## 2026-01-27 - US-044: Create personas list tab component
+- What was implemented:
+  - Created `components/personas/PersonasList.tsx` with comprehensive persona display
+  - Grid view of persona cards:
+    - Photo container with gradient placeholder when no photo_url
+    - Validation status badge overlay (pending, validated, needs_revision, rejected)
+    - Name, demographics summary (age, gender, location)
+    - Job title badge and income display
+    - Quote preview (truncated to 100 chars)
+  - Generate Personas button with placeholder modal (full implementation in US-045)
+  - FilterBar component:
+    - Product filter dropdown (fetches products via getProducts)
+    - Validation status filter dropdown
+    - Client-side status filtering, server-side product filtering
+  - Empty state for brands with no personas
+  - Loading state with skeleton cards
+  - Error state with retry button
+  - No-results state when filters return empty
+  - Integrated into brand detail page, replacing PlaceholderTab for personas tab
+- Files changed:
+  - components/personas/PersonasList.tsx (new, ~700 lines)
+  - app/(dashboard)/brands/[id]/page.tsx (import and use PersonasList)
+- **Learnings for future iterations:**
+  - Use typed interfaces for JSONB fields (DemographicsData, ProfessionalData) parsed from persona
+  - Validation status badge component reusable for persona display across app
+  - Filter by product uses getPersonas(brandId, productId) - server-side filtering
+  - Filter by status is client-side filtering on already-fetched personas
+  - Persona cards link to `/brands/${brandId}/personas/${persona.id}` (detail page in US-046)
+  - Modal placeholder pattern: show message about future implementation rather than broken functionality
+---
+
+## 2026-01-27 - US-045: Create persona generation modal
+- What was implemented:
+  - Created `components/personas/GeneratePersonaModal.tsx` with comprehensive persona generation UI
+  - Product selection dropdown:
+    - Fetches products via getProducts action
+    - Auto-selects if only one product exists
+    - Required if multiple products available
+    - Shows "Brand-level personas" if no products
+  - Intelligence report selection dropdown:
+    - Fetches reports via GET /api/generate/intelligence
+    - Filters to only active reports
+    - Auto-selects if only one report exists
+    - Shows expiration status (disables expired reports)
+    - Warning message if no reports available
+  - Persona count selector (1-5):
+    - +/- buttons with min/max limits
+    - Large count display
+    - Form hint about quota usage
+  - Generate button triggers API call:
+    - Validates required fields before submission
+    - Calls POST /api/generate/persona with brand_id, product_id, intelligence_report_id, count
+  - Loading state with progress message:
+    - Animated pulse icon
+    - Three-step progress indicator (Analyzing brand context, Processing market intelligence, Generating personas)
+    - Informative message about what's happening
+  - Success state showing generated personas:
+    - Success header with checkmark icon
+    - Quota remaining display
+    - Generation warnings section (if any)
+    - Generated persona cards with avatar, name, demographics, job badge, income, quote
+    - "Generate More" button to reset and generate again
+    - "Done" button to close modal
+  - Quota handling:
+    - Displays remaining/limit on success
+    - Shows error with upgrade link when quota exceeded (429 response)
+  - Integrated into PersonasList:
+    - Replaced placeholder modal with real GeneratePersonaModal component
+    - Removed unused modal styles from PersonasList
+    - Modal refreshes persona list via onGenerated callback
+- Files changed:
+  - components/personas/GeneratePersonaModal.tsx (new, ~900 lines)
+  - components/personas/PersonasList.tsx (updated to use GeneratePersonaModal)
+- **Learnings for future iterations:**
+  - Fetch intelligence reports via GET /api/generate/intelligence?brand_id={id} - returns { reports: [] }
+  - Filter reports by status === "active" to exclude inactive/archived reports
+  - isReportExpired checks if expires_at < now to disable expired reports in dropdown
+  - Auto-selection pattern: if (data.length === 1) setState(data[0].id) for single-item lists
+  - Use onGenerated callback to refresh parent data after successful generation
+  - Modal state pattern: isOpen prop + onClose + onGenerated callbacks for parent control
+  - API error responses can include { error, remaining, limit } for quota info
+  - ValidationStatusBadge component is reusable across persona display components
+---
+
+## 2026-01-27 - US-046: Create persona detail page
+- What was implemented:
+  - Created `app/(dashboard)/brands/[id]/personas/[personaId]/page.tsx` with comprehensive persona detail view
+  - Photo display:
+    - Full photo from photo_url if available
+    - Gradient placeholder with user icon when no photo
+    - Aspect ratio 1:1 with rounded corners
+  - Validation status badge showing status (Pending Review, Validated, Needs Revision, Rejected)
+  - CollapsibleSection component for expandable/collapsible data sections:
+    - Animated chevron rotation on expand/collapse
+    - Hover background highlight
+    - Icon + title header layout
+  - Six data sections with all persona attributes:
+    - Demographics: age, gender, location, country, education, marital status, children, household size, income, ethnicity
+    - Professional: job title, occupation, industry, company, company size, experience, work style, weekly hours, commute, career goals
+    - Psychographics: values, motivations, fears, aspirations, personality traits, attitudes
+    - Lifestyle: hobbies, interests, activities, sports, travel, diet, fitness level, wake/sleep times
+    - Media & Tech: social platforms, primary platform, news sources, podcasts/streaming, devices, primary device, content preferences, screen time, influencers
+    - Buying Behavior: shopping preferences, primary channel, price sensitivity, brand loyalty, decision factors, purchase frequency, research behavior, current brands, avg monthly spend, purchase triggers
+    - Beliefs & Attitudes (collapsed by default): category beliefs, advertising attitude, social consciousness, trust level
+  - Narrative elements:
+    - Quote card with quotation icon
+    - Backstory card
+    - Day in Life card
+  - Validation notes card (yellow background) when notes exist
+  - Metadata card showing generation model, created date, updated date
+  - Header with:
+    - Back to Personas link
+    - Build Audience button (green, links to /audience page - US-049)
+    - Edit button (purple, links to /edit page)
+    - Delete button (red border) with confirmation modal
+  - Delete confirmation modal with warning icon and persona name
+  - Responsive two-column layout (photo/narrative left, data sections right)
+  - Mobile: single column with centered photo
+- Files changed:
+  - app/(dashboard)/brands/[id]/personas/[personaId]/page.tsx (new, ~1250 lines)
+- **Learnings for future iterations:**
+  - Use ParsedPersona interface to type JSONB fields from database
+  - CollapsibleSection pattern with useState for isExpanded provides good UX for data-heavy pages
+  - InfoRow and TagsList helper components provide consistent styling across sections
+  - Use `as Type | null` when parsing JSONB fields from database
+  - Format currency with Intl.NumberFormat for consistent display
+  - Build Audience button links to `/brands/${brandId}/personas/${personaId}/audience` (US-049)
+  - Edit button links to `/brands/${brandId}/personas/${personaId}/edit` (future story)
+  - defaultExpanded prop on CollapsibleSection allows less important sections to start collapsed
+---
+
+## 2026-01-27 - US-047: Create audience translation service
+- What was implemented:
+  - Created `lib/services/audience-translator.ts` with platform-specific targeting translation
+  - Core translation functions:
+    - `translateToMeta`: Meta/Facebook targeting with demographics, interests, behaviors, education, relationship status, industries, job positions, life events, income targeting
+    - `translateToGoogle`: Google Ads targeting with age ranges, household income tiers, affinity audiences, in-market audiences, custom intent, detailed demographics, life events
+    - `translateToLinkedIn`: LinkedIn targeting with company size, industries, job titles, seniorities (based on years experience), degrees, skills, interests, age/gender
+    - `translateToTikTok`: TikTok targeting with age groups, interests from hobbies, hashtag interactions, household income, spending power, OS targeting from devices
+    - `translateToPinterest`: Pinterest targeting with age buckets, geo targeting, interests mapped to Pinterest categories, keywords
+    - `translateToSnapchat`: Snapchat targeting with advanced demographics (income, education, parental status), interests, behaviors, device OS
+  - Main function `translatePersonaToAudiences`: Translates persona to all platforms at once with size estimates
+  - Helper functions:
+    - `getAgeRange`: Calculate ±5 year age range for targeting
+    - `getGoogleAgeRange`: Map age to Google age ranges
+    - `getGoogleIncomeTier`: Map income to Google household income tiers
+    - `getLinkedInSeniority`: Map years of experience to LinkedIn seniority levels
+    - `extractCountryCode`: Extract country code from location/country strings
+    - `mapInterestsToPlatform`: Map hobbies/interests to platform-specific interest IDs
+    - `estimateAudienceSize`: Estimate audience size based on targeting criteria
+  - Export utilities:
+    - `exportTargetingAsJson`: Export targeting as formatted JSON
+    - `exportTargetingAsCsv`: Export targeting as CSV with flattened structure
+  - Type definitions for all platforms:
+    - MetaTargeting, GoogleTargeting, LinkedInTargeting, TikTokTargeting, PinterestTargeting, SnapchatTargeting
+    - PersonaForTranslation interface for input
+    - AudienceTargeting interface for combined output
+    - SizeEstimates interface for audience size ranges
+- Files changed:
+  - lib/services/audience-translator.ts (new, ~1160 lines)
+- **Learnings for future iterations:**
+  - Platform targeting APIs use different ID formats: Meta uses numeric IDs, Google uses string enums, LinkedIn uses URNs
+  - Age targeting differs by platform: Meta uses min/max, Google uses enum ranges, TikTok uses age groups
+  - LinkedIn seniority can be derived from years of experience using thresholds (0-2=Entry, 3-7=Senior, etc.)
+  - Income mapping to tiers: <$35K=lower 50%, $35-50K=50-60%, $50-75K=60-70%, $75-100K=70-80%, $100-150K=80-90%, $150K+=top 10%
+  - Audience size estimates use base population × age filter × gender filter × income filter × education filter
+  - Platform reach multipliers: Google 1.2x, LinkedIn 0.15x (B2B), TikTok 0.6x (younger), Pinterest 0.3x, Snapchat 0.4x (younger)
+  - Use `as unknown as Record<string, unknown>` for type-safe object flattening in export functions
+---
+
+## 2026-01-27 - US-048: Create audience building API route
+- What was implemented:
+  - Created `app/api/generate/audience/route.ts` with POST and GET handlers
+  - POST endpoint creates audience from persona:
+    - Accepts persona_id as required parameter
+    - Loads persona data from database
+    - Verifies brand ownership through persona -> brand -> user chain
+    - Checks if audience already exists for persona (returns 409 if exists)
+    - Parses persona JSONB fields into typed PersonaForTranslation object
+    - Calls translatePersonaToAudiences from audience-translator service
+    - Saves audience to database with all platform targeting:
+      - meta_targeting, google_targeting, linkedin_targeting
+      - tiktok_targeting, pinterest_targeting, snapchat_targeting
+      - size_estimates for all platforms
+    - Generates audience name from persona name ("PersonaName - Audience")
+    - Returns full audience response with all targeting data
+  - GET endpoint lists audiences:
+    - Accepts brand_id or persona_id query parameter (at least one required)
+    - Verifies ownership through brand or persona -> brand chain
+    - Returns audiences with linked persona data (id, name, photo_url)
+    - Ordered by created_at descending
+  - Full authentication and authorization checks on both endpoints
+  - Proper TypeScript type handling with explicit casts for Supabase queries
+- Files changed:
+  - app/api/generate/audience/route.ts (new, ~360 lines)
+- **Learnings for future iterations:**
+  - For Supabase joins with type inference issues, use separate queries instead of `!inner` joins
+  - Cast results with `as Type` pattern: `const persona = personaData as Persona`
+  - Check for existing resources before creating (409 Conflict pattern)
+  - parsePersonaForTranslation helper converts database Persona to PersonaForTranslation interface
+  - Audience naming convention: "{PersonaName} - Audience" for auto-generated names
+  - Brand ownership verification chain: persona.brand_id -> brands.user_id -> user.id
+---
+
+## 2026-01-27 - US-049: Create audience detail page
+- What was implemented:
+  - Created `app/(dashboard)/brands/[id]/personas/[personaId]/audience/page.tsx` with comprehensive audience detail view
+  - Tabbed platform view for 6 platforms:
+    - Meta (Facebook/Instagram) - blue theme (#1877F2)
+    - Google Ads - blue theme (#4285F4)
+    - LinkedIn - blue theme (#0A66C2)
+    - TikTok - black theme (#000000)
+    - Pinterest - red theme (#E60023)
+    - Snapchat - yellow theme (#FFFC00)
+  - Platform-specific SVG icons for each tab
+  - Platform-specific targeting display components:
+    - MetaTargetingDisplay: demographics, location, interests, industries, job positions, behaviors, income
+    - GoogleTargetingDisplay: demographics, location, affinity/in-market audiences, custom intent, detailed demographics, life events
+    - LinkedInTargetingDisplay: location, demographics, company size, industries, job titles, seniorities, experience, degrees, skills, interests
+    - TikTokTargetingDisplay: demographics, location, interests, behaviors, hashtags, OS targeting
+    - PinterestTargetingDisplay: demographics, location, interests, keywords, expanded targeting setting
+    - SnapchatTargetingDisplay: demographics, advanced demographics, location, interests, behaviors, device OS
+  - Export functionality:
+    - Export modal with JSON/CSV format selector
+    - JSON export with formatted output (2-space indent)
+    - CSV export with flattened object structure
+    - Download triggers Blob creation and anchor click
+    - Updates export_count and last_exported_at locally
+  - Build Audience button for personas without existing audiences:
+    - Calls POST /api/generate/audience endpoint
+    - Loading state during build process
+    - Success refreshes page to show new audience
+  - Size estimates display:
+    - Shows estimated audience size range per platform
+    - formatNumber helper for K/M formatting
+    - Left border color matches active platform
+  - Helper components:
+    - TargetingSection: labeled section container
+    - TargetingRow: key-value row display
+    - TagList: array of tags/interests display
+  - Responsive design:
+    - Mobile-first with horizontal scrolling tabs
+    - Full-width export button on mobile
+  - Error handling with toast notifications
+- Files changed:
+  - app/(dashboard)/brands/[id]/personas/[personaId]/audience/page.tsx (new, ~1620 lines)
+- **Learnings for future iterations:**
+  - Use `use(params)` with Promise<{...}> for Next.js 15 app router params
+  - Platform targeting types can be imported from lib/services/audience-translator.ts
+  - Export functionality: Blob + URL.createObjectURL + anchor.click pattern for downloads
+  - Format numbers: >= 1M use `.toFixed(1)M`, >= 1K use `.toFixed(1)K`
+  - CSS variables in style jsx: use inline style prop for dynamic values like `borderLeftColor`
+  - ParsedAudience interface mirrors Audience but with typed targeting fields instead of Json
+---
+
+## 2026-01-27 - US-050: Create image generation API route
+- What was implemented:
+  - Created `app/api/generate/image/route.ts` with POST and GET handlers
+  - POST endpoint generates images via Nano Banana Pro:
+    - Accepts persona_id (required), brand_id (required), product_id (optional)
+    - image_type: hero-ad, product-focus, lifestyle, testimonial, comparison, ugc-style
+    - style_preset: clean-modern, bold-vibrant, natural-organic, premium-studio, authentic-raw
+    - output_format: 1080x1080, 1080x1920, 1080x1350, 1200x628, 1920x1080
+    - count: 1-5 images per request
+  - buildImagePrompt function creates detailed prompts from:
+    - Persona demographics (age, gender, ethnicity, location)
+    - Persona lifestyle (interests, hobbies, activities)
+    - Persona psychographics (values, personality traits, aspirations)
+    - Brand visual guidelines (colors, styles, photography)
+    - Brand voice tone
+    - Product details (name, type, description)
+  - Image type specific prompts:
+    - hero-ad: Dramatic, aspirational, high-end campaign quality
+    - product-focus: Product clearly visible, professional commercial
+    - lifestyle: Authentic moments, natural lighting, relatable
+    - testimonial: Portrait, genuine smile, approachable
+    - comparison: Before/after style, transformation visible
+    - ugc-style: Candid, smartphone aesthetic, slight imperfection
+  - Downloads generated images from Nano Banana Pro URLs
+  - Uploads to Supabase Storage creatives bucket ({userId}/creatives/{brandId}/{filename})
+  - Creates creative records with:
+    - creative_type: "image"
+    - subtype: image_type
+    - dimensions: width/height from API response
+    - generation_params: style_preset, output_format, seed, timing
+    - generation_model: "nano-banana-pro"
+  - Quota enforcement via checkImageQuota and incrementImageUsage
+  - Returns 429 with remaining/limit when quota exceeded
+  - GET endpoint lists creatives by brand_id with optional filters (persona_id, type, subtype, limit)
+- Files changed:
+  - app/api/generate/image/route.ts (new, ~650 lines)
+- **Learnings for future iterations:**
+  - Use `generateImageWithRetry` for automatic retry on rate limits/server errors
+  - `downloadImage` returns ArrayBuffer for direct upload to Supabase Storage
+  - Upload path pattern: `{userId}/creatives/{brandId}/{timestamp}-{random}.{ext}`
+  - Store dimensions as JSONB: `{ width: number, height: number }`
+  - Image generation prompts work best with specific persona details, not generic descriptions
+  - Include style modifiers in prompt based on style_preset for consistent results
+  - UGC-style prompts should mention "slight imperfection" for authenticity
+---
+
+## 2026-01-27 - US-051: Create video generation API route
+- What was implemented:
+  - Created `app/api/generate/video/route.ts` with POST and GET handlers
+  - POST endpoint generates videos via Veo 3.1:
+    - Accepts persona_id (required), brand_id (required), product_id (optional)
+    - video_type: ugc-style, product-demo, testimonial, dynamic
+    - duration: 4s, 6s, 8s, 12s, 15s, 30s
+    - aspect_ratio: 9:16, 1:1, 16:9
+    - starting_image_url: optional URL for image-to-video generation
+  - buildVideoPrompt function creates detailed prompts from:
+    - Persona demographics (age, gender, ethnicity, location)
+    - Persona lifestyle (interests, hobbies, activities)
+    - Persona psychographics (values, personality traits)
+    - Brand visual guidelines (colors, styles)
+    - Brand voice tone
+    - Product details (name, description)
+  - Video type specific prompts:
+    - ugc-style: Handheld smartphone feel, casual, unscripted, slight imperfection
+    - product-demo: Clear product focus, smooth camera, professional lighting
+    - testimonial: Person speaking to camera, genuine expression, conversational
+    - dynamic: Fast-paced, energetic, eye-catching transitions, action-packed
+  - Downloads generated videos from Veo API URLs via downloadVideo
+  - Uploads to Supabase Storage creatives bucket ({userId}/creatives/{brandId}/{filename})
+  - Handles thumbnail upload separately if Veo provides thumbnailUrl
+  - Creates creative records with:
+    - creative_type: "video"
+    - subtype: video_type
+    - dimensions from aspectRatioResolutions mapping
+    - duration_seconds from API response
+    - generation_params: video_type, duration, aspect_ratio, starting_image flag, seed, timing
+    - generation_model: "veo-3.1"
+  - Quota enforcement via checkVideoQuota and incrementVideoUsage
+  - Returns 429 with remaining/limit when quota exceeded
+  - GET endpoint lists video creatives by brand_id with optional filters (persona_id, subtype, limit)
+  - Filters to creative_type="video" only in GET
+- Files changed:
+  - app/api/generate/video/route.ts (new, ~580 lines)
+- **Learnings for future iterations:**
+  - Use `generateVideoWithRetry` for automatic retry on rate limits/server errors
+  - `downloadVideo` returns ArrayBuffer with contentType for storage upload
+  - Video content types: mp4, webm, mov (quicktime) - default to mp4
+  - Veo API may return thumbnail URL separately - upload it independently
+  - aspectRatioResolutions provides width/height for each aspect ratio
+  - Video generation takes longer than images - Veo uses polling for async completion
+  - For image-to-video, pass startingImageUrl to Veo request
+  - Videos count as 1 per generation (unlike images which can be 1-5 per request)
+---
+
+## 2026-01-27 - US-052: Create creatives tab with gallery
+- What was implemented:
+  - Created `components/creatives/CreativesGallery.tsx` with comprehensive creatives display
+  - FilterBar component:
+    - Type filter dropdown (All Types, Images, Videos)
+    - Persona filter dropdown (populated from getPersonas)
+    - Product filter dropdown (populated from getProducts)
+    - Sort dropdown (Newest First, Oldest First, Highest Rated, Lowest Rated)
+  - CreativeCard component:
+    - Thumbnail display with aspect ratio 1:1
+    - Type badge (image=purple, video=red) in top-left corner
+    - Video play overlay on hover for videos
+    - Video duration badge in bottom-right for videos
+    - Subtype label, rating stars (1-5), headline preview
+    - Dimensions and date in metadata row
+    - Hover animation with lift and shadow
+  - CreativeDetailModal component:
+    - Full-size media display (video player with controls, or image)
+    - Type and subtype labels
+    - Copy section: headline, subheadline, CTA button, body copy
+    - Interactive 5-star rating (clickable, saves via rateCreative action)
+    - Generation details grid: model, dimensions, duration, style, created date
+    - Generation prompt display in scrollable container
+    - Download button (fetches blob, triggers download)
+    - Delete button with confirmation state
+  - Empty state for brands with no creatives
+  - Loading state with skeleton card grid
+  - Error state with retry button
+  - No-results state when filters return empty
+  - Generate Images button (purple) opens placeholder modal
+  - Generate Videos button (red) opens placeholder modal
+  - Placeholder modals explain upcoming functionality (US-053, US-054)
+  - Integrated into brand detail page:
+    - Imported CreativesGallery component
+    - Replaced PlaceholderTab with CreativesGallery for "creatives" tab
+    - Removed unused PlaceholderTab component
+- Files changed:
+  - components/creatives/CreativesGallery.tsx (new, ~1850 lines)
+  - app/(dashboard)/brands/[id]/page.tsx (import CreativesGallery, use in tab, remove PlaceholderTab)
+- **Learnings for future iterations:**
+  - Use `!= null` instead of truthiness check for `unknown` type values from JSON to avoid TS errors
+  - For detail modals with media, use video player for videos and img for images
+  - Interactive star rating: map 1-5, fill based on current rating, onClick calls rate action
+  - Download pattern: fetch blob, createObjectURL, create anchor, click, cleanup
+  - Placeholder modals are useful to show upcoming features while keeping buttons functional
+  - Client-side sorting with spread+sort: `[...creatives].sort((a, b) => ...)`
+  - Filter options should be fetched once on mount, not on every filter change
+---
+
+## 2026-01-27 - US-053
+- What was implemented: Image generation modal for generating AI-powered advertising images
+- Files changed:
+  - components/creatives/GenerateImageModal.tsx (new, ~1375 lines)
+  - components/creatives/CreativesGallery.tsx (import modal, replace placeholder)
+- Features:
+  - Persona selection grid with avatars and demographics
+  - Optional product selection dropdown
+  - Image type selector (6 types: hero-ad, product-focus, lifestyle, testimonial, comparison, ugc-style)
+  - Style preset selector (5 presets: clean-modern, bold-vibrant, natural-organic, premium-studio, authentic-raw)
+  - Output format selector with visual aspect ratio previews
+  - Image count selector (1-5)
+  - Generates via POST /api/generate/image
+  - Loading state with animated generation steps
+  - Success state shows image grid with dimensions and subtypes
+  - Quota tracking and display
+  - Error handling with upgrade link for quota exceeded
+- **Learnings for future iterations:**
+  - Follow GeneratePersonaModal pattern for generation modals: loading/generating/success states, quota tracking, onGenerated callback
+  - Image type and style preset data should be defined in the component with value/label/description for UI display
+  - Output format visual previews use aspectRatio CSS property with width/height ratio values
+  - For persona selector cards, show avatar (with fallback icon), name, and demographics summary
+  - Use grid layout for option cards (image types, style presets) and flex with overflow-x for format options
+---
+
+## 2026-01-27 - US-054: Create video generation modal
+- What was implemented: Video generation modal for generating AI-powered advertising videos
+- Files changed:
+  - components/creatives/GenerateVideoModal.tsx (new, ~1550 lines)
+  - components/creatives/CreativesGallery.tsx (import modal, replace placeholder, remove unused styles)
+- Features:
+  - Persona selection grid with avatars and demographics
+  - Optional product selection dropdown
+  - Video type selector (4 types: ugc-style, product-demo, testimonial, dynamic) with descriptions
+  - Duration selector (6 options: 4s, 6s, 8s, 12s, 15s, 30s) with labels (quick teaser, bumper ad, etc.)
+  - Aspect ratio selector with visual previews (9:16 vertical, 1:1 square, 16:9 horizontal) showing resolutions
+  - Optional starting image URL input for image-to-video generation
+  - Generates via POST /api/generate/video
+  - Loading state with animated generation steps and timing note (30-60 seconds)
+  - Success state shows video player with thumbnail, dimensions, duration, and subtype
+  - "Generate Another" and "Done" buttons in success state
+  - Quota tracking and display with remaining count
+  - Error handling with upgrade link for quota exceeded
+- **Learnings for future iterations:**
+  - Follow GenerateImageModal pattern for video generation - same state machine, quota handling, callback pattern
+  - Video generation takes longer - include note about 30-60 seconds in loading state
+  - Duration options need both value (4s) and descriptive label (quick teaser) for better UX
+  - Aspect ratio options work well with visual preview boxes showing the actual ratio
+  - Starting image is optional and uses URL input (file upload would require separate upload to storage first)
+  - Video success state uses native video player with controls and poster (thumbnail)
+  - Remove unused placeholder styles from parent when replacing placeholder with real modal
+---
+
+## 2026-01-27 - US-055: Create creative detail modal
+- What was implemented: Standalone creative detail modal component for viewing and managing generated creatives
+- Files changed:
+  - components/creatives/CreativeDetailModal.tsx (new, ~783 lines)
+  - components/creatives/CreativesGallery.tsx (updated imports, removed inline modal code)
+- Features:
+  - Full-size media display (image or video player with controls)
+  - Type badge (image=purple, video=red) and subtype label
+  - Copy section: headline, subheadline, CTA button preview, body copy
+  - Interactive 5-star rating with visual feedback and rating hint
+  - Generation details grid: model, dimensions, duration, style, format, aspect ratio, created date, cost
+  - Generation prompt display in scrollable container
+  - Tags display with pill styling
+  - Download button with loading spinner state
+  - Delete button with enhanced confirmation dialog (warning icon, explanatory text)
+  - Responsive mobile layout (stacks media above details)
+  - Backdrop blur effect on modal overlay
+- **Learnings for future iterations:**
+  - Extract reusable components into separate files for better maintainability
+  - Use backdrop-filter: blur() for modal overlays to improve visual hierarchy
+  - Add loading states to async actions (download) for better UX feedback
+  - Delete confirmation should explain consequences ("This action cannot be undone")
+  - Style preset display should convert kebab-case to Title Case for readability
+  - Include rating hint when no rating exists to guide user interaction
+  - Cast unknown types from generationParams with null checks before using
+---
+
+## 2026-01-27 - US-056: Create subscription pricing page
+- What was implemented:
+  - Created `app/(dashboard)/settings/subscription/page.tsx` with comprehensive subscription management UI
+  - Four tier display: Starter ($49), Professional ($149), Agency ($399), Enterprise (Custom)
+  - Monthly/yearly billing toggle with 20% yearly savings badge
+  - TierPricing cards with:
+    - Current plan badge (green) and popular badge (purple for Professional)
+    - Price display with /month and yearly total for annual billing
+    - Feature list with checkmarks
+    - Subscribe/Upgrade/Downgrade/Current Plan buttons
+    - Contact Sales link for Enterprise
+  - Current plan banner (gradient purple) for paid users:
+    - Plan name and "Canceling at period end" badge
+    - Manage Billing button (opens Stripe portal)
+    - Cancel Subscription button (opens modal)
+    - Reactivate button (when cancellation pending)
+  - Cancel subscription modal with warning and consequences list
+  - Feature comparison table with all tiers and features
+  - Error banner for failed operations
+  - Created `app/api/stripe/checkout/route.ts`:
+    - Creates Stripe Checkout session with customer
+    - Creates Stripe customer if doesn't exist
+    - 14-day free trial for new subscriptions
+    - Support for promotion codes
+  - Created `app/api/stripe/portal/route.ts`:
+    - Opens Stripe Billing Portal for subscription management
+    - Returns portal URL for redirect
+  - Created `app/api/stripe/cancel/route.ts`:
+    - Cancels subscription at period end
+    - Updates local database record
+  - Created `app/api/stripe/reactivate/route.ts`:
+    - Reactivates subscription before period ends
+    - Updates local database record
+- Files changed:
+  - app/(dashboard)/settings/subscription/page.tsx (new, ~780 lines)
+  - app/api/stripe/checkout/route.ts (new, ~120 lines)
+  - app/api/stripe/portal/route.ts (new, ~60 lines)
+  - app/api/stripe/cancel/route.ts (new, ~65 lines)
+  - app/api/stripe/reactivate/route.ts (new, ~70 lines)
+- **Learnings for future iterations:**
+  - Use `as Subscription | null` pattern when querying subscriptions table
+  - Use `as never` for Supabase update/insert calls to bypass type inference issues
+  - For routes that don't use the request object, use `export async function POST()` without parameter
+  - Stripe Billing Portal provides built-in UI for payment method and invoice management
+  - Cancel at period end pattern: user keeps access until billing cycle ends, then auto-downgrades
+  - Use createStripeCustomer from lib/stripe/client to create customers with metadata
+  - tierPricing and tierLimits from lib/stripe/client provide all subscription configuration
+---
+
+## 2026-01-27 - US-057: Create usage dashboard
+- What was implemented:
+  - Created `app/(dashboard)/settings/usage/page.tsx` with comprehensive usage dashboard
+  - Period info card:
+    - Gradient purple header matching subscription page style
+    - Current billing period dates display (period_start - period_end)
+    - Days remaining counter
+    - Current plan name badge
+  - Usage metrics grid:
+    - Four metric cards: Personas, Images, Videos, Intelligence Reports
+    - Each card has icon, label, description
+    - Progress bar with dynamic color (green <80%, yellow 80-99%, red 100%)
+    - Used / Limit display with comma formatting
+    - Status badges: Healthy, Near Limit, At Limit, Unlimited
+  - Warning states:
+    - Yellow warning banner at >80% usage with upgrade link
+    - Red danger banner at 100% with upgrade link
+    - "You've reached your X limit" / "You're approaching your X limit" messages
+  - Upgrade CTA section for free/starter tiers linking to subscription page
+  - Usage tips section with three tip cards explaining:
+    - Monthly reset
+    - No rollover
+    - Monitoring importance
+  - Intelligence reports limit handling (not in usage_tracking table, uses tier-based limits)
+  - Unlimited (-1) handling for enterprise tier
+- Files changed:
+  - app/(dashboard)/settings/usage/page.tsx (new, ~899 lines)
+- **Learnings for future iterations:**
+  - Usage tracking table has period_start/period_end as DATE type (not TIMESTAMPTZ)
+  - Query usage by period_start with ISO date string (YYYY-MM-DD format)
+  - Intelligence reports don't have a limit field in usage_tracking - use tierLimits from lib/stripe/client
+  - Progress bar color logic: <80% green (#10b981), 80-99% yellow (#f59e0b), 100% red (#dc2626)
+  - Unlimited values represented as -1 in tierLimits
+  - Use `as SubscriptionTier` when accessing subscription?.tier from database
+  - Period dates can be calculated from current month if usage record doesn't exist yet
+---
+
+## 2026-01-27 - US-058: Create profile settings page
+- What was implemented:
+  - Created `app/(dashboard)/settings/profile/page.tsx` with comprehensive profile settings UI
+  - Personal Information section:
+    - Full Name text input (optional)
+    - Email Address text input (required)
+    - Field hint when email is changed ("will require verification")
+    - Form submission via Supabase Auth updateUser
+    - Updates both `name` and `full_name` in user_metadata
+  - Change Password section:
+    - Current Password field (required)
+    - New Password field (required, min 8 chars)
+    - Confirm New Password field (required)
+    - Validates current password via signInWithPassword before allowing change
+    - Validates new passwords match and meet length requirement
+    - Updates via Supabase Auth updateUser with password field
+  - Success/Error notifications:
+    - Green success banner with checkmark icon
+    - Red error banner with alert icon
+    - Auto-dismiss success messages after 3 seconds
+    - Descriptive error messages for all failure cases
+  - Account Information section:
+    - Shows truncated account ID
+    - Shows email verification status badge (green "Verified")
+  - UI/UX:
+    - Back to Settings link
+    - Section headers with icons matching other settings pages
+    - Consistent form input styling
+    - Loading spinner states on buttons during submission
+    - Disabled state for buttons when submitting or missing required fields
+    - Responsive layout (2-column info grid on desktop, single on mobile)
+- Files changed:
+  - app/(dashboard)/settings/profile/page.tsx (new, ~754 lines)
+- **Learnings for future iterations:**
+  - Supabase Auth user metadata can store custom fields via `data: { name, full_name }` in updateUser
+  - To verify current password before allowing change, use signInWithPassword first
+  - User data location: user.email for email, user.user_metadata for custom fields (name, avatar_url)
+  - Password update doesn't require re-authentication in Supabase if already signed in
+  - Email change requires verification of new address - Supabase handles this automatically
+  - Success message pattern: set state to true, then setTimeout to reset after 3 seconds
+---
+
+## 2026-01-27 - US-059: Create usage quota enforcement
+- What was implemented:
+  - Created `lib/services/usage.ts` with centralized quota enforcement functions:
+    - `checkQuota()` - Validates if user has remaining quota for a resource type
+    - `decrementQuota()` - Increments usage after successful generation
+    - `getCurrentUsage()` - Retrieves all usage data for the current period
+    - `checkQuotaOrFail()` - Helper for API routes with pre-built error response
+  - Supports all quota types: `personas`, `images`, `videos`, `intelligence_reports`
+  - Returns `{allowed: boolean, remaining: number, limit: number, message?: string}`
+  - Intelligence reports use tier-based limits:
+    - Free: 10, Starter: 25, Professional: 100, Agency: 500, Enterprise: unlimited (-1)
+  - Updated all generation API routes:
+    - `app/api/generate/persona/route.ts` - removed 100+ lines of local quota code
+    - `app/api/generate/image/route.ts` - removed 100+ lines of local quota code  
+    - `app/api/generate/video/route.ts` - removed 100+ lines of local quota code
+    - `app/api/generate/intelligence/route.ts` - added proper quota check (was optional before)
+  - Returns 429 status with error, remaining, and limit when quota exceeded
+  - Handles unlimited quota (-1 value) for enterprise tier
+- Files changed:
+  - lib/services/usage.ts (created)
+  - app/api/generate/persona/route.ts (modified)
+  - app/api/generate/image/route.ts (modified)
+  - app/api/generate/video/route.ts (modified)
+  - app/api/generate/intelligence/route.ts (modified)
+- **Learnings for future iterations:**
+  - Usage tracking table uses `period_start` (first of month) as the billing period key
+  - Default limits are: personas=5, images=20, videos=5, intelligence_reports=10
+  - Subscription table has `personas_limit`, `images_limit`, `videos_limit` columns
+  - Intelligence reports don't have a limit column in subscriptions - use tier-based lookup
+  - Always handle the case where no usage record exists yet (new billing period)
+  - Use `as never` type assertion for Supabase insert/update when types are too strict
+---
+
+## 2026-01-27 - US-060: Add empty states and loading states throughout
+- What was implemented:
+  - Created `components/shared/` directory for reusable UI components
+  - **EmptyState.tsx component:**
+    - Configurable icon types: brands, products, personas, creatives, audiences, reports, generic
+    - Custom ReactNode icon support for flexibility
+    - Title and description text props
+    - Primary CTA (href or onClick) with optional icon
+    - Secondary CTA for multiple actions (e.g., "Generate Images" + "Generate Videos")
+    - Variant support: primary (filled) and secondary (outlined)
+    - Responsive design with mobile stacking
+  - **LoadingState.tsx component:**
+    - Two variants: spinner (animated circle) and skeleton (shimmer cards)
+    - Skeleton presets: cards, products, personas, creatives, list, table
+    - Configurable item count, minHeight, fullPage mode
+    - Spinner component exported for standalone use
+    - CSS shimmer animation for skeleton elements
+  - **index.ts barrel export file**
+  - Updated brands list page to use shared EmptyState
+  - Updated ProductsList to use EmptyState and LoadingState (products preset)
+  - Updated PersonasList to use EmptyState and LoadingState (personas preset)
+  - Updated CreativesGallery to use EmptyState and LoadingState (creatives preset)
+- Files changed:
+  - components/shared/EmptyState.tsx (new, ~400 lines)
+  - components/shared/LoadingState.tsx (new, ~400 lines)
+  - components/shared/index.ts (new)
+  - app/(dashboard)/brands/page.tsx (import EmptyState, replace inline component)
+  - components/products/ProductsList.tsx (import shared components, replace inline)
+  - components/personas/PersonasList.tsx (import shared components, replace inline)
+  - components/creatives/CreativesGallery.tsx (import shared components, replace inline)
+- **Learnings for future iterations:**
+  - Shared components live in `components/shared/` and should be imported via `@/components/shared`
+  - EmptyState accepts `icon` as either a predefined type string or custom ReactNode
+  - LoadingState presets provide consistent skeleton layouts matching each list type
+  - When replacing inline components with shared ones, rename local function (e.g., `EmptyState` -> `BrandsEmptyState`) to avoid import conflicts
+  - Skeleton shimmer animation: `background-size: 200% 100%` with keyframes shifting `background-position`
+  - Use barrel exports (index.ts) for cleaner imports: `import { EmptyState, LoadingState } from "@/components/shared"`
+---
