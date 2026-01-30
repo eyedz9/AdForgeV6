@@ -376,7 +376,7 @@ export type Database = {
       audiences: {
         Row: {
           id: string;
-          persona_id: string;
+          persona_id: string | null;
           brand_id: string;
           name: string;
           meta_targeting: Json;
@@ -393,7 +393,7 @@ export type Database = {
         };
         Insert: {
           id?: string;
-          persona_id: string;
+          persona_id?: string | null;
           brand_id: string;
           name: string;
           meta_targeting?: Json;
@@ -410,7 +410,7 @@ export type Database = {
         };
         Update: {
           id?: string;
-          persona_id?: string;
+          persona_id?: string | null;
           brand_id?: string;
           name?: string;
           meta_targeting?: Json;
@@ -436,6 +436,40 @@ export type Database = {
             foreignKeyName: "audiences_brand_id_fkey";
             columns: ["brand_id"];
             referencedRelation: "brands";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      audience_personas: {
+        Row: {
+          id: string;
+          audience_id: string;
+          persona_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          audience_id: string;
+          persona_id: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          audience_id?: string;
+          persona_id?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "audience_personas_audience_id_fkey";
+            columns: ["audience_id"];
+            referencedRelation: "audiences";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "audience_personas_persona_id_fkey";
+            columns: ["persona_id"];
+            referencedRelation: "personas";
             referencedColumns: ["id"];
           }
         ];
@@ -779,6 +813,9 @@ export type PersonaUpdate = TablesUpdate<"personas">;
 export type Audience = Tables<"audiences">;
 export type AudienceInsert = TablesInsert<"audiences">;
 export type AudienceUpdate = TablesUpdate<"audiences">;
+
+export type AudiencePersona = Tables<"audience_personas">;
+export type AudiencePersonaInsert = TablesInsert<"audience_personas">;
 
 export type Creative = Tables<"creatives">;
 export type CreativeInsert = TablesInsert<"creatives">;

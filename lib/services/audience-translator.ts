@@ -1794,3 +1794,191 @@ export function exportTargetingAsCsv(
 
   return rows.map((row) => row.map((cell) => `"${cell}"`).join(",")).join("\n");
 }
+
+// ============================================================================
+// MULTI-PERSONA MERGE FUNCTIONS
+// ============================================================================
+
+function dedupeById<T extends { id: string }>(items: T[]): T[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    if (seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  });
+}
+
+function dedupeStrings(items: string[]): string[] {
+  return [...new Set(items)];
+}
+
+function mergeMetaTargeting(targetings: MetaTargeting[]): MetaTargeting {
+  const merged: MetaTargeting = {
+    age_min: Math.min(...targetings.map((t) => t.age_min)),
+    age_max: Math.max(...targetings.map((t) => t.age_max)),
+    genders: dedupeStrings(targetings.flatMap((t) => t.genders.map(String))).map(Number),
+    geo_locations: {
+      countries: dedupeStrings(targetings.flatMap((t) => t.geo_locations.countries || [])),
+      regions: dedupeById(targetings.flatMap((t) => t.geo_locations.regions || []).map((r) => ({ ...r, id: r.key }))).map(({ id, ...rest }) => rest) as MetaTargeting["geo_locations"]["regions"],
+      cities: dedupeById(targetings.flatMap((t) => t.geo_locations.cities || []).map((c) => ({ ...c, id: c.key }))).map(({ id, ...rest }) => rest) as MetaTargeting["geo_locations"]["cities"],
+    },
+    interests: dedupeById(targetings.flatMap((t) => t.interests || [])),
+    behaviors: dedupeById(targetings.flatMap((t) => t.behaviors || [])),
+    life_events: dedupeById(targetings.flatMap((t) => t.life_events || [])),
+    income: dedupeById(targetings.flatMap((t) => t.income || [])),
+    education_statuses: dedupeStrings(targetings.flatMap((t) => (t.education_statuses || []).map(String))).map(Number),
+    relationship_statuses: dedupeStrings(targetings.flatMap((t) => (t.relationship_statuses || []).map(String))).map(Number),
+    work_positions: dedupeById(targetings.flatMap((t) => t.work_positions || [])),
+    industries: dedupeById(targetings.flatMap((t) => t.industries || [])),
+  };
+  return merged;
+}
+
+function mergeGoogleTargeting(targetings: GoogleTargeting[]): GoogleTargeting {
+  return {
+    demographics: {
+      age_ranges: dedupeStrings(targetings.flatMap((t) => t.demographics.age_ranges)),
+      genders: dedupeStrings(targetings.flatMap((t) => t.demographics.genders)),
+      household_incomes: dedupeStrings(targetings.flatMap((t) => t.demographics.household_incomes)),
+      parental_status: dedupeStrings(targetings.flatMap((t) => t.demographics.parental_status)),
+    },
+    geo_targeting: {
+      countries: dedupeStrings(targetings.flatMap((t) => t.geo_targeting.countries || [])),
+      regions: dedupeStrings(targetings.flatMap((t) => t.geo_targeting.regions || [])),
+      cities: dedupeStrings(targetings.flatMap((t) => t.geo_targeting.cities || [])),
+    },
+    affinity_audiences: dedupeById(targetings.flatMap((t) => t.affinity_audiences)),
+    in_market_audiences: dedupeById(targetings.flatMap((t) => t.in_market_audiences)),
+    custom_intent_audiences: [{
+      keywords: dedupeStrings(targetings.flatMap((t) => t.custom_intent_audiences?.flatMap((c) => c.keywords) || [])),
+    }],
+    detailed_demographics: {
+      education: dedupeStrings(targetings.flatMap((t) => t.detailed_demographics?.education || [])),
+      marital_status: dedupeStrings(targetings.flatMap((t) => t.detailed_demographics?.marital_status || [])),
+      employment: dedupeStrings(targetings.flatMap((t) => t.detailed_demographics?.employment || [])),
+    },
+    life_events: dedupeById(targetings.flatMap((t) => t.life_events || [])),
+  };
+}
+
+function mergeLinkedInTargeting(targetings: LinkedInTargeting[]): LinkedInTargeting {
+  return {
+    locations: {
+      countries: dedupeStrings(targetings.flatMap((t) => t.locations.countries || [])),
+      regions: dedupeStrings(targetings.flatMap((t) => t.locations.regions || [])),
+    },
+    company_size: dedupeStrings(targetings.flatMap((t) => t.company_size || [])),
+    industries: dedupeById(targetings.flatMap((t) => t.industries || [])),
+    job_functions: dedupeById(targetings.flatMap((t) => t.job_functions || [])),
+    seniorities: dedupeStrings(targetings.flatMap((t) => t.seniorities || [])),
+    years_of_experience: dedupeStrings(targetings.flatMap((t) => t.years_of_experience || [])),
+    degrees: dedupeStrings(targetings.flatMap((t) => t.degrees || [])),
+    skills: dedupeById(targetings.flatMap((t) => t.skills || [])),
+    interests: dedupeById(targetings.flatMap((t) => t.interests || [])),
+    age_ranges: dedupeStrings(targetings.flatMap((t) => t.age_ranges || [])),
+    genders: dedupeStrings(targetings.flatMap((t) => t.genders || [])),
+  };
+}
+
+function mergeTikTokTargeting(targetings: TikTokTargeting[]): TikTokTargeting {
+  return {
+    location_ids: dedupeStrings(targetings.flatMap((t) => t.location_ids)),
+    gender: targetings.some((t) => t.gender === "NONE") || new Set(targetings.map((t) => t.gender)).size > 1 ? "NONE" : targetings[0].gender,
+    age_groups: dedupeStrings(targetings.flatMap((t) => t.age_groups)),
+    languages: dedupeStrings(targetings.flatMap((t) => t.languages)),
+    interests: dedupeById(targetings.flatMap((t) => t.interests || [])),
+    behaviors: dedupeById(targetings.flatMap((t) => t.behaviors || [])),
+    hashtag_interactions: dedupeStrings(targetings.flatMap((t) => t.hashtag_interactions || [])),
+    household_income: dedupeStrings(targetings.flatMap((t) => t.household_income || [])),
+    operating_systems: dedupeStrings(targetings.flatMap((t) => t.operating_systems || [])),
+  };
+}
+
+function mergePinterestTargeting(targetings: PinterestTargeting[]): PinterestTargeting {
+  return {
+    geo_targeting: {
+      countries: dedupeStrings(targetings.flatMap((t) => t.geo_targeting.countries || [])),
+      regions: dedupeStrings(targetings.flatMap((t) => t.geo_targeting.regions || [])),
+    },
+    age_bucket: dedupeStrings(targetings.flatMap((t) => t.age_bucket || [])),
+    genders: dedupeStrings(targetings.flatMap((t) => t.genders || [])),
+    locales: dedupeStrings(targetings.flatMap((t) => t.locales || [])),
+    interests: dedupeById(targetings.flatMap((t) => t.interests || [])),
+    keywords: dedupeStrings(targetings.flatMap((t) => t.keywords || [])),
+    expanded_targeting: true,
+  };
+}
+
+function mergeSnapchatTargeting(targetings: SnapchatTargeting[]): SnapchatTargeting {
+  const allGeos = targetings.flatMap((t) => t.geos);
+  const uniqueGeos = allGeos.filter(
+    (geo, i, arr) => arr.findIndex((g) => g.country_code === geo.country_code && g.region_id === geo.region_id) === i
+  );
+
+  return {
+    geos: uniqueGeos,
+    demographics: {
+      age_groups: dedupeStrings(targetings.flatMap((t) => t.demographics.age_groups || [])),
+      gender: targetings.some((t) => t.demographics.gender === "ALL") || new Set(targetings.map((t) => t.demographics.gender)).size > 1 ? "ALL" : targetings[0].demographics.gender,
+      languages: dedupeStrings(targetings.flatMap((t) => t.demographics.languages || [])),
+      advanced_demographics: {
+        income: dedupeStrings(targetings.flatMap((t) => t.demographics.advanced_demographics?.income || [])),
+        education: dedupeStrings(targetings.flatMap((t) => t.demographics.advanced_demographics?.education || [])),
+        parental_status: dedupeStrings(targetings.flatMap((t) => t.demographics.advanced_demographics?.parental_status || [])),
+      },
+    },
+    interests: dedupeById(targetings.flatMap((t) => t.interests || [])),
+    behaviors: dedupeById(targetings.flatMap((t) => t.behaviors || [])),
+    devices: {
+      os_types: dedupeStrings(targetings.flatMap((t) => t.devices?.os_types || [])),
+    },
+  };
+}
+
+function mergeSizeEstimates(estimates: SizeEstimates[]): SizeEstimates {
+  const platforms = ["meta", "google", "linkedin", "tiktok", "pinterest", "snapchat"] as const;
+  const merged: SizeEstimates = {};
+
+  for (const platform of platforms) {
+    const platformEstimates = estimates
+      .map((e) => e[platform])
+      .filter((e): e is { lower: number; upper: number } => !!e);
+
+    if (platformEstimates.length > 0) {
+      // For merged audiences, use union estimation: sum with overlap discount
+      const totalLower = platformEstimates.reduce((sum, e) => sum + e.lower, 0);
+      const totalUpper = platformEstimates.reduce((sum, e) => sum + e.upper, 0);
+      // Apply overlap discount (assume ~30% overlap between personas)
+      const overlapFactor = Math.max(0.7, 1 - (platformEstimates.length - 1) * 0.15);
+      merged[platform] = {
+        lower: Math.round(totalLower * overlapFactor),
+        upper: Math.round(totalUpper * overlapFactor),
+      };
+    }
+  }
+
+  return merged;
+}
+
+/**
+ * Translate multiple personas to merged targeting for all platforms
+ */
+export async function translateMultiplePersonasToAudiences(
+  personas: PersonaForTranslation[]
+): Promise<AudienceTargeting> {
+  // Translate each persona individually
+  const allTargetings = await Promise.all(
+    personas.map((persona) => translatePersonaToAudiences(persona))
+  );
+
+  // Merge per-platform results
+  return {
+    meta: mergeMetaTargeting(allTargetings.map((t) => t.meta)),
+    google: mergeGoogleTargeting(allTargetings.map((t) => t.google)),
+    linkedin: mergeLinkedInTargeting(allTargetings.map((t) => t.linkedin)),
+    tiktok: mergeTikTokTargeting(allTargetings.map((t) => t.tiktok)),
+    pinterest: mergePinterestTargeting(allTargetings.map((t) => t.pinterest)),
+    snapchat: mergeSnapchatTargeting(allTargetings.map((t) => t.snapchat)),
+    sizeEstimates: mergeSizeEstimates(allTargetings.map((t) => t.sizeEstimates)),
+  };
+}
