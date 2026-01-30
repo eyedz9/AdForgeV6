@@ -7,6 +7,8 @@
  * POST /api/generate/persona
  */
 
+export const maxDuration = 300;
+
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import {

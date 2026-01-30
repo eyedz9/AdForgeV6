@@ -7,6 +7,8 @@
  * POST /api/generate/persona-suggestions/regenerate
  */
 
+export const maxDuration = 300;
+
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { sendMessageForJSON } from "@/lib/api/anthropic";

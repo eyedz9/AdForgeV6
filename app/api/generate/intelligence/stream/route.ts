@@ -7,6 +7,8 @@
  * POST /api/generate/intelligence/stream
  */
 
+export const maxDuration = 300;
+
 import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import {
