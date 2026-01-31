@@ -758,30 +758,26 @@ export async function synthesizeFullReport(
   context: { brand: Brand; product?: Product | null },
   onProgress?: SynthesisProgressCallback
 ): Promise<SynthesizedReport> {
-  onProgress?.("synthesizing", "Analyzing competitor landscape...", 0);
-  const competitors = await synthesizeCompetitors(rawData, context);
+  // Phase 1: Run independent analyses in parallel
+  onProgress?.("synthesizing", "Analyzing competitor landscape, trends, audience & platforms...", 0);
+  const [competitors, trends, audienceSegments, platformInsights] = await Promise.all([
+    synthesizeCompetitors(rawData, context),
+    synthesizeTrends(rawData, context),
+    synthesizeAudience(rawData, context),
+    analyzePlatforms(rawData, context),
+  ]);
+  onProgress?.("synthesizing", "Core analysis complete", 55);
 
-  onProgress?.("synthesizing", "Identifying market trends...", 20);
-  const trends = await synthesizeTrends(rawData, context);
+  // Phase 2: Run dependent analyses in parallel (need audience/competitors/trends from phase 1)
+  onProgress?.("synthesizing", "Generating persona suggestions & content recommendations...", 65);
+  const [personaSuggestions, contentRecommendations] = await Promise.all([
+    suggestPersonas(audienceSegments, competitors, context),
+    recommendContent(trends, audienceSegments, platformInsights, context),
+  ]);
+  onProgress?.("synthesizing", "Suggestions complete", 85);
 
-  onProgress?.("synthesizing", "Building audience segments...", 40);
-  const audienceSegments = await synthesizeAudience(rawData, context);
-
-  onProgress?.("synthesizing", "Analyzing platform insights...", 55);
-  const platformInsights = await analyzePlatforms(rawData, context);
-
-  onProgress?.("synthesizing", "Generating persona suggestions...", 70);
-  const personaSuggestions = await suggestPersonas(audienceSegments, competitors, context);
-
-  onProgress?.("synthesizing", "Creating content recommendations...", 85);
-  const contentRecommendations = await recommendContent(
-    trends,
-    audienceSegments,
-    platformInsights,
-    context
-  );
-
-  onProgress?.("synthesizing", "Generating executive summary...", 95);
+  // Phase 3: Executive summary needs everything
+  onProgress?.("synthesizing", "Generating executive summary...", 90);
   const executiveSummary = await generateExecutiveSummary(
     competitors,
     trends,

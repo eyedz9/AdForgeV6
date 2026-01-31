@@ -60,30 +60,39 @@ export async function sendMessage(
   const mergedConfig = { ...DEFAULT_CONFIG, ...config };
 
   // Use OpenRouter's native chat completions API
-  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${apiKey}`,
-      "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-      "X-Title": "AdForge Intelligence",
-    },
-    body: JSON.stringify({
-      model: mergedConfig.model,
-      max_tokens: mergedConfig.maxTokens,
-      temperature: mergedConfig.temperature,
-      messages: [
-        {
-          role: "system",
-          content: mergedConfig.systemPrompt,
-        },
-        {
-          role: "user",
-          content: userMessage,
-        },
-      ],
-    }),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 120_000); // 2 minute timeout per call
+
+  let response: Response;
+  try {
+    response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+        "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+        "X-Title": "AdForge Intelligence",
+      },
+      body: JSON.stringify({
+        model: mergedConfig.model,
+        max_tokens: mergedConfig.maxTokens,
+        temperature: mergedConfig.temperature,
+        messages: [
+          {
+            role: "system",
+            content: mergedConfig.systemPrompt,
+          },
+          {
+            role: "user",
+            content: userMessage,
+          },
+        ],
+      }),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!response.ok) {
     const errorText = await response.text();
