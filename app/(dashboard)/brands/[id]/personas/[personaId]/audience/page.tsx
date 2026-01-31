@@ -224,8 +224,8 @@ export default function AudienceDetailPage({
           .loading-spinner {
             width: 40px;
             height: 40px;
-            border: 3px solid #e5e7eb;
-            border-top-color: #6366f1;
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top-color: var(--color-plasma-violet);
             border-radius: 50%;
             animation: spin 1s linear infinite;
           }
@@ -233,7 +233,7 @@ export default function AudienceDetailPage({
             to { transform: rotate(360deg); }
           }
           .loading-container p {
-            color: #6b7280;
+            color: var(--color-text-secondary);
             margin: 0;
           }
         `}</style>
@@ -268,24 +268,24 @@ export default function AudienceDetailPage({
             padding: 2rem;
           }
           .error-icon {
-            color: #dc2626;
+            color: var(--color-plasma-rose);
             margin-bottom: 1rem;
           }
           .error-container h2 {
             font-size: 1.25rem;
             font-weight: 600;
-            color: #111827;
+            color: var(--color-text-primary);
             margin: 0 0 0.5rem;
           }
           .error-container p {
-            color: #6b7280;
+            color: var(--color-text-secondary);
             margin: 0 0 1.5rem;
           }
           .back-btn {
             display: inline-flex;
             align-items: center;
             padding: 0.625rem 1rem;
-            background: #6366f1;
+            background: var(--color-plasma-violet);
             color: white;
             border-radius: 8px;
             text-decoration: none;
@@ -293,7 +293,7 @@ export default function AudienceDetailPage({
             transition: background 0.15s;
           }
           .back-btn:hover {
-            background: #4f46e5;
+            background: var(--color-plasma-purple);
           }
         `}</style>
       </div>
@@ -364,24 +364,24 @@ export default function AudienceDetailPage({
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
-            color: #6b7280;
+            color: var(--color-text-secondary);
             text-decoration: none;
             font-size: 0.875rem;
             margin-bottom: 1rem;
             transition: color 0.15s;
           }
           .back-link:hover {
-            color: #111827;
+            color: var(--color-text-primary);
           }
           .page-title {
             font-size: 1.75rem;
             font-weight: 700;
-            color: #111827;
+            color: var(--color-text-primary);
             margin: 0;
           }
           .build-card {
-            background: white;
-            border: 1px solid #e5e7eb;
+            background: var(--color-surface);
+            border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: 12px;
             padding: 3rem 2rem;
             text-align: center;
@@ -392,7 +392,7 @@ export default function AudienceDetailPage({
             justify-content: center;
             width: 100px;
             height: 100px;
-            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            background: linear-gradient(135deg, var(--color-plasma-violet) 0%, var(--color-plasma-purple) 100%);
             border-radius: 24px;
             color: white;
             margin: 0 auto 1.5rem;
@@ -400,21 +400,21 @@ export default function AudienceDetailPage({
           .build-card h2 {
             font-size: 1.5rem;
             font-weight: 600;
-            color: #111827;
+            color: var(--color-text-primary);
             margin: 0 0 1rem;
           }
           .build-card p {
             font-size: 1rem;
-            color: #6b7280;
+            color: var(--color-text-secondary);
             line-height: 1.6;
             margin: 0 0 2rem;
           }
           .build-card p strong {
-            color: #111827;
+            color: var(--color-text-primary);
           }
           .error-message {
-            color: #dc2626;
-            background: #fef2f2;
+            color: var(--color-plasma-rose);
+            background: rgba(244, 63, 94, 0.1);
             padding: 0.75rem 1rem;
             border-radius: 8px;
             margin-bottom: 1rem;
@@ -424,7 +424,7 @@ export default function AudienceDetailPage({
             align-items: center;
             gap: 0.5rem;
             padding: 0.875rem 1.5rem;
-            background: #10b981;
+            background: var(--color-plasma-emerald);
             color: white;
             border: none;
             border-radius: 8px;
@@ -582,14 +582,14 @@ export default function AudienceDetailPage({
           display: inline-flex;
           align-items: center;
           gap: 0.5rem;
-          color: #6b7280;
+          color: var(--color-text-secondary);
           text-decoration: none;
           font-size: 0.875rem;
           margin-bottom: 1rem;
           transition: color 0.15s;
         }
         .back-link:hover {
-          color: #111827;
+          color: var(--color-text-primary);
         }
         .header-row {
           display: flex;
@@ -606,7 +606,7 @@ export default function AudienceDetailPage({
         .page-title {
           font-size: 1.75rem;
           font-weight: 700;
-          color: #111827;
+          color: var(--color-text-primary);
           margin: 0;
         }
         .export-stats {
@@ -618,14 +618,14 @@ export default function AudienceDetailPage({
           align-items: center;
           gap: 0.375rem;
           font-size: 0.8125rem;
-          color: #6b7280;
+          color: var(--color-text-secondary);
         }
         .export-btn {
           display: inline-flex;
           align-items: center;
           gap: 0.5rem;
           padding: 0.625rem 1rem;
-          background: #6366f1;
+          background: var(--color-plasma-violet);
           color: white;
           border: none;
           border-radius: 8px;
@@ -635,7 +635,7 @@ export default function AudienceDetailPage({
           transition: background 0.15s;
         }
         .export-btn:hover:not(:disabled) {
-          background: #4f46e5;
+          background: var(--color-plasma-purple);
         }
         .export-btn:disabled {
           opacity: 0.7;
@@ -663,29 +663,29 @@ export default function AudienceDetailPage({
           align-items: center;
           gap: 0.5rem;
           padding: 0.625rem 1rem;
-          background: white;
-          border: 2px solid #e5e7eb;
+          background: var(--color-surface);
+          border: 2px solid rgba(255, 255, 255, 0.08);
           border-radius: 8px;
           font-size: 0.9375rem;
           font-weight: 500;
-          color: #6b7280;
+          color: var(--color-text-secondary);
           cursor: pointer;
           white-space: nowrap;
           transition: all 0.15s;
         }
         .platform-tab:hover:not(.active) {
-          background: #f9fafb;
-          border-color: #d1d5db;
+          background: var(--color-elevated);
+          border-color: rgba(255, 255, 255, 0.15);
         }
         .platform-tab.active {
-          background: #f3f4f6;
+          background: var(--color-elevated);
           font-weight: 600;
         }
 
         /* Size Estimate */
         .size-estimate {
-          background: white;
-          border: 1px solid #e5e7eb;
+          background: var(--color-surface);
+          border: 1px solid rgba(255, 255, 255, 0.08);
           border-left-width: 4px;
           border-radius: 8px;
           padding: 1rem 1.25rem;
@@ -696,19 +696,19 @@ export default function AudienceDetailPage({
           font-weight: 600;
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          color: #6b7280;
+          color: var(--color-text-secondary);
           margin-bottom: 0.25rem;
         }
         .estimate-value {
           font-size: 1.5rem;
           font-weight: 700;
-          color: #111827;
+          color: var(--color-text-primary);
         }
 
         /* Targeting Content */
         .targeting-content {
-          background: white;
-          border: 1px solid #e5e7eb;
+          background: var(--color-surface);
+          border: 1px solid rgba(255, 255, 255, 0.08);
           border-radius: 12px;
           padding: 1.5rem;
         }
@@ -722,10 +722,10 @@ export default function AudienceDetailPage({
           align-items: center;
           gap: 1rem;
           padding: 1rem 1.25rem;
-          background: #fef2f2;
-          border: 1px solid #fecaca;
+          background: rgba(244, 63, 94, 0.1);
+          border: 1px solid rgba(244, 63, 94, 0.2);
           border-radius: 8px;
-          color: #dc2626;
+          color: var(--color-plasma-rose);
           font-size: 0.875rem;
           z-index: 100;
         }
@@ -733,7 +733,7 @@ export default function AudienceDetailPage({
           background: none;
           border: none;
           font-size: 1.25rem;
-          color: #dc2626;
+          color: var(--color-plasma-rose);
           cursor: pointer;
         }
 
