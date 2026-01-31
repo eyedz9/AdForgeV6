@@ -296,6 +296,16 @@ export async function POST(request: NextRequest) {
         controller.enqueue(encoder.encode(encodeSSE(event)));
       };
 
+      // Send SSE keepalive comments to prevent Vercel idle timeout
+      const heartbeat = setInterval(() => {
+        try {
+          controller.enqueue(encoder.encode(": keepalive\n\n"));
+        } catch {
+          // Stream already closed
+          clearInterval(heartbeat);
+        }
+      }, 10_000);
+
       try {
         const body = (await request.json()) as GenerateIntelligenceRequest;
 
@@ -305,6 +315,7 @@ export async function POST(request: NextRequest) {
             message: "brand_id is required",
             progress: 0,
           });
+          clearInterval(heartbeat);
           controller.close();
           return;
         }
@@ -323,6 +334,7 @@ export async function POST(request: NextRequest) {
             message: "Unauthorized",
             progress: 0,
           });
+          clearInterval(heartbeat);
           controller.close();
           return;
         }
@@ -348,6 +360,7 @@ export async function POST(request: NextRequest) {
             message: "Brand not found or access denied",
             progress: 0,
           });
+          clearInterval(heartbeat);
           controller.close();
           return;
         }
@@ -380,6 +393,7 @@ export async function POST(request: NextRequest) {
             message: quotaCheck.message || "Quota exceeded",
             progress: 0,
           });
+          clearInterval(heartbeat);
           controller.close();
           return;
         }
@@ -825,6 +839,7 @@ export async function POST(request: NextRequest) {
             message: `Failed to save report: ${insertError?.message || "Unknown error"}`,
             progress: 90,
           });
+          clearInterval(heartbeat);
           controller.close();
           return;
         }
@@ -875,6 +890,7 @@ export async function POST(request: NextRequest) {
           progress: 100,
         });
 
+        clearInterval(heartbeat);
         controller.close();
       } catch (error) {
         sendEvent({
@@ -885,6 +901,7 @@ export async function POST(request: NextRequest) {
               : "Failed to generate report",
           progress: 0,
         });
+        clearInterval(heartbeat);
         controller.close();
       }
     },
