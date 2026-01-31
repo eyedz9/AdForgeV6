@@ -708,34 +708,30 @@ export async function generateExecutiveSummary(
   personaSuggestions: PersonaSuggestion[],
   context: { brand: Brand; product?: Product | null }
 ): Promise<ExecutiveSummary> {
-  const prompt = `Generate a comprehensive executive summary of ALL gathered market intelligence for "${context.brand.name}" in the ${context.brand.industry || "business"} industry.
+  const prompt = `Generate an executive summary of market intelligence for "${context.brand.name}" (${context.brand.industry || "business"}).
+${context.product ? `Product: ${context.product.name}` : ""}
 
 ## Competitors (${competitors.length}):
-${competitors.map((c) => `- ${c.name}: ${c.positioning} | Pricing: ${c.pricingTier} | Strengths: ${c.strengths.join(", ")} | Weaknesses: ${c.weaknesses.join(", ")} | USPs: ${c.uniqueSellingPoints.join(", ")}`).join("\n")}
+${competitors.slice(0, 5).map((c) => `- ${c.name}: ${c.positioning} (${c.pricingTier})`).join("\n")}
 
-## Market Trends (${trends.length}):
-${trends.map((t) => `- ${t.name}: ${t.direction} (${t.impactLevel} impact) | Opportunities: ${t.opportunities.join(", ")} | Threats: ${t.threats.join(", ")}`).join("\n")}
+## Trends (${trends.length}):
+${trends.slice(0, 5).map((t) => `- ${t.name}: ${t.direction}, ${t.impactLevel} impact`).join("\n")}
 
-## Audience Segments (${audiences.length}):
-${audiences.map((a) => `- ${a.name} (${a.size} segment): ${a.description} | Demographics: ${a.demographics.ageRange}, ${a.demographics.gender}, ${a.demographics.income} | Pain Points: ${a.psychographics.painPoints.join(", ")}`).join("\n")}
+## Audience (${audiences.length}):
+${audiences.slice(0, 4).map((a) => `- ${a.name} (${a.size}): ${a.demographics.ageRange}, ${a.demographics.income}`).join("\n")}
 
-## Platform Insights (${platformInsights.length}):
-${platformInsights.map((p) => `- ${p.platform}: Sentiment: ${p.sentiment} | Key Topics: ${p.keyTopics.join(", ")} | Recommendations: ${p.recommendations.join(", ")}`).join("\n")}
+## Platforms (${platformInsights.length}):
+${platformInsights.slice(0, 5).map((p) => `- ${p.platform}: ${p.sentiment} sentiment`).join("\n")}
 
-## Content Recommendations (${contentRecommendations.length}):
-${contentRecommendations.map((c) => `- [${c.priority} priority] ${c.type} on ${c.platform}: "${c.headline}" — ${c.reasoning}`).join("\n")}
+## Content Recs (${contentRecommendations.length}):
+${contentRecommendations.slice(0, 4).map((c) => `- ${c.type} on ${c.platform}: "${c.headline}"`).join("\n")}
 
-## Persona Suggestions (${personaSuggestions.length}):
-${personaSuggestions.map((p) => `- ${p.name} (${p.archetype}): "${p.headline}" | Relevance: ${p.relevanceScore}/10 | ${p.reasoning}`).join("\n")}
-
-${context.product ? `## Product Context: ${context.product.name}` : ""}
-
-Synthesize ALL of the above data into a comprehensive executive summary with:
-- overview: 3-5 sentence market overview that synthesizes insights from competitors, trends, audience segments, platform activity, and persona analysis
-- keyFindings: Array of 5-7 key findings drawn from across ALL categories (competitive landscape, market trends, audience insights, platform sentiment, content gaps, and persona opportunities)
-- opportunities: Array of 4-6 opportunities informed by trends, platform insights, content recommendations, and underserved audience segments
-- threats: Array of 3-5 threats/challenges from competitive pressure, platform sentiment, market trend shifts, and audience pain points
-- recommendations: Array of 5-8 actionable recommendations that reference specific personas, platforms, and content strategies where relevant
+Return a JSON object with:
+- overview: 2-3 sentence market overview
+- keyFindings: Array of 4-5 key findings
+- opportunities: Array of 3-4 opportunities
+- threats: Array of 2-3 threats
+- recommendations: Array of 3-5 actionable recommendations
 
 Return as a JSON object.`;
 
