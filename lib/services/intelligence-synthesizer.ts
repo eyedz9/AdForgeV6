@@ -787,29 +787,26 @@ export async function synthesizeFullReport(
   onProgress?.("synthesizing", "Analyzing competitors...", 0);
   const competitors = await synthesizeCompetitors(rawData, context);
 
-  onProgress?.("synthesizing", "Analyzing market trends...", 14);
+  onProgress?.("synthesizing", "Analyzing market trends...", 16);
   const trends = await synthesizeTrends(rawData, context);
 
-  onProgress?.("synthesizing", "Analyzing target audience...", 28);
+  onProgress?.("synthesizing", "Analyzing target audience...", 33);
   const audienceSegments = await synthesizeAudience(rawData, context);
 
-  onProgress?.("synthesizing", "Analyzing platform insights...", 42);
+  onProgress?.("synthesizing", "Analyzing platform insights...", 50);
   const platformInsights = await analyzePlatforms(rawData, context);
 
-  onProgress?.("synthesizing", "Generating persona suggestions...", 56);
-  const personaSuggestions = await suggestPersonas(audienceSegments, competitors, context);
-
-  onProgress?.("synthesizing", "Generating content recommendations...", 70);
+  onProgress?.("synthesizing", "Generating content recommendations...", 67);
   const contentRecommendations = await recommendContent(trends, audienceSegments, platformInsights, context);
 
-  onProgress?.("synthesizing", "Generating executive summary...", 85);
+  onProgress?.("synthesizing", "Generating executive summary...", 83);
   const executiveSummary = await generateExecutiveSummary(
     competitors,
     trends,
     audienceSegments,
     platformInsights,
     contentRecommendations,
-    personaSuggestions,
+    [],
     context
   );
 
@@ -820,7 +817,7 @@ export async function synthesizeFullReport(
     competitors,
     trends,
     audienceSegments,
-    personaSuggestions,
+    personaSuggestions: [],
     platformInsights,
     contentRecommendations,
   };
