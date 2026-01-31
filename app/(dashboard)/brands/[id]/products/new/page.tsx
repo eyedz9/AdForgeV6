@@ -1423,11 +1423,11 @@ export default function NewProductPage({
         .field-select,
         .field-textarea {
           padding: 0.625rem 0.875rem;
-          border: 1px solid #d1d5db;
+          border: 1px solid rgba(255, 255, 255, 0.1);
           border-radius: 8px;
           font-size: 0.9375rem;
-          color: #111827;
-          background: white;
+          color: var(--color-text-primary);
+          background: var(--color-elevated);
           transition: border-color 0.15s, box-shadow 0.15s;
         }
 
@@ -1435,8 +1435,8 @@ export default function NewProductPage({
         .field-select:focus,
         .field-textarea:focus {
           outline: none;
-          border-color: #6366f1;
-          box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+          border-color: var(--color-plasma-violet);
+          box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
         }
 
         .field-input.error,
@@ -1447,7 +1447,12 @@ export default function NewProductPage({
 
         .field-input::placeholder,
         .field-textarea::placeholder {
-          color: #9ca3af;
+          color: var(--color-text-muted);
+        }
+
+        .field-select option {
+          background: var(--color-surface);
+          color: var(--color-text-primary);
         }
 
         .field-textarea {

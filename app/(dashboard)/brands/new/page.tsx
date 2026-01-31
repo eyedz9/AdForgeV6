@@ -2205,19 +2205,24 @@ function Step3VisualGuidelines({
 
         .field-select {
           padding: 0.625rem 0.875rem;
-          border: 1px solid #d1d5db;
+          border: 1px solid rgba(255, 255, 255, 0.1);
           border-radius: 8px;
           font-size: 0.9375rem;
-          color: #111827;
-          background: white;
+          color: var(--color-text-primary);
+          background: var(--color-elevated);
           cursor: pointer;
           transition: border-color 0.15s, box-shadow 0.15s;
         }
 
         .field-select:focus {
           outline: none;
-          border-color: #6366f1;
-          box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+          border-color: var(--color-plasma-violet);
+          box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+        }
+
+        .field-select option {
+          background: var(--color-surface);
+          color: var(--color-text-primary);
         }
 
         .field-error {
@@ -2916,39 +2921,45 @@ function Step4VoiceTone({
 
         .field-select {
           padding: 0.625rem 0.875rem;
-          border: 1px solid #d1d5db;
+          border: 1px solid rgba(255, 255, 255, 0.1);
           border-radius: 8px;
           font-size: 0.9375rem;
-          color: #111827;
-          background: white;
+          color: var(--color-text-primary);
+          background: var(--color-elevated);
           cursor: pointer;
           transition: border-color 0.15s, box-shadow 0.15s;
         }
 
         .field-select:focus {
           outline: none;
-          border-color: #6366f1;
-          box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+          border-color: var(--color-plasma-violet);
+          box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
         }
 
         .field-select.error {
           border-color: #ef4444;
         }
 
+        .field-select option {
+          background: var(--color-surface);
+          color: var(--color-text-primary);
+        }
+
         .field-input {
           padding: 0.625rem 0.875rem;
-          border: 1px solid #d1d5db;
+          border: 1px solid rgba(255, 255, 255, 0.1);
           border-radius: 8px;
           font-size: 0.9375rem;
-          color: #111827;
+          color: var(--color-text-primary);
+          background: var(--color-elevated);
           transition: border-color 0.15s, box-shadow 0.15s;
           flex: 1;
         }
 
         .field-input:focus {
           outline: none;
-          border-color: #6366f1;
-          box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+          border-color: var(--color-plasma-violet);
+          box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
         }
 
         .field-input.error {

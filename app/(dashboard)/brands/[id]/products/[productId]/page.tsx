@@ -317,7 +317,7 @@ function VariantModal({
           display: block;
           font-size: 0.875rem;
           font-weight: 500;
-          color: #374151;
+          color: var(--color-text-secondary);
           margin-bottom: 0.375rem;
         }
         .required {
@@ -326,16 +326,16 @@ function VariantModal({
         .field-input {
           width: 100%;
           padding: 0.625rem 0.875rem;
-          border: 1px solid #d1d5db;
+          border: 1px solid rgba(255, 255, 255, 0.1);
           border-radius: 8px;
           font-size: 0.9375rem;
-          color: #111827;
-          background: white;
+          color: var(--color-text-primary);
+          background: var(--color-elevated);
         }
         .field-input:focus {
           outline: none;
-          border-color: #6366f1;
-          box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+          border-color: var(--color-plasma-violet);
+          box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
         }
         .input-with-prefix {
           position: relative;
@@ -345,7 +345,7 @@ function VariantModal({
         .input-prefix {
           position: absolute;
           left: 0.875rem;
-          color: #6b7280;
+          color: var(--color-text-secondary);
           font-size: 0.9375rem;
         }
         .field-input.with-prefix {
@@ -362,23 +362,24 @@ function VariantModal({
           align-items: center;
           gap: 0.25rem;
           padding: 0.25rem 0.5rem;
-          background: #f3f4f6;
+          background: rgba(139, 92, 246, 0.1);
+          border: 1px solid rgba(139, 92, 246, 0.15);
           border-radius: 6px;
           font-size: 0.8125rem;
         }
         .attribute-key {
           font-weight: 500;
-          color: #6b7280;
+          color: var(--color-text-secondary);
         }
         .attribute-value {
-          color: #111827;
+          color: var(--color-text-primary);
         }
         .remove-attr-btn {
           background: none;
           border: none;
           padding: 0.125rem;
           cursor: pointer;
-          color: #6b7280;
+          color: var(--color-text-secondary);
           display: flex;
         }
         .remove-attr-btn:hover {
@@ -393,24 +394,24 @@ function VariantModal({
         }
         .add-attr-btn {
           padding: 0.625rem 1rem;
-          background: #f3f4f6;
-          border: 1px solid #d1d5db;
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid rgba(255, 255, 255, 0.1);
           border-radius: 8px;
           font-size: 0.875rem;
           font-weight: 500;
-          color: #374151;
+          color: var(--color-text-secondary);
           cursor: pointer;
         }
         .add-attr-btn:hover {
-          background: #e5e7eb;
+          background: rgba(255, 255, 255, 0.08);
         }
         .btn-save {
-          background: #6366f1;
+          background: var(--color-plasma-violet);
           border: none;
           color: white;
         }
         .btn-save:hover {
-          background: #4f46e5;
+          background: var(--color-plasma-purple);
         }
       `}</style>
     </div>
