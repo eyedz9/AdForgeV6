@@ -191,21 +191,25 @@ export async function synthesizeCompetitors(
   context: { brand: Brand; product?: Product | null }
 ): Promise<SynthesizedCompetitor[]> {
   const searchData = rawData.competitors.searches
+    .slice(0, 10)
     .map((s) => `- ${s.title}: ${s.description || ""}`)
     .join("\n");
 
   const scrapedData = rawData.competitors.scraped
-    .map((s) => `### ${s.url}\n${truncateContent(s.content, 1500)}`)
+    .slice(0, 3)
+    .map((s) => `### ${s.url}\n${truncateContent(s.content, 800)}`)
     .join("\n\n");
 
   // Include Reddit discussions for competitor mentions
   const redditMentions = rawData.reddit?.scraped
-    .map((s) => `### Reddit: ${s.url}\n${truncateContent(s.content, 600)}`)
+    .slice(0, 2)
+    .map((s) => `### Reddit: ${s.url}\n${truncateContent(s.content, 400)}`)
     .join("\n\n") || "";
 
   // Include forum discussions for competitor comparisons
   const forumMentions = rawData.forums?.scraped
-    .map((s) => `### Forum: ${s.url}\n${truncateContent(s.content, 600)}`)
+    .slice(0, 2)
+    .map((s) => `### Forum: ${s.url}\n${truncateContent(s.content, 400)}`)
     .join("\n\n") || "";
 
   const prompt = `Analyze the following REAL search results, scraped content, and user discussions from BrightData to identify competitors for "${context.brand.name}" in the ${context.brand.industry || "business"} industry.
@@ -277,11 +281,13 @@ export async function synthesizeTrends(
   context: { brand: Brand; product?: Product | null }
 ): Promise<SynthesizedTrend[]> {
   const searchData = rawData.trends.searches
+    .slice(0, 10)
     .map((s) => `- ${s.title}: ${s.description || ""}`)
     .join("\n");
 
   const scrapedData = rawData.trends.scraped
-    .map((s) => `### ${s.url}\n${truncateContent(s.content, 2000)}`)
+    .slice(0, 3)
+    .map((s) => `### ${s.url}\n${truncateContent(s.content, 1000)}`)
     .join("\n\n");
 
   const prompt = `Analyze the following data to identify market trends for the ${context.brand.industry || "business"} industry.
@@ -340,28 +346,34 @@ export async function synthesizeAudience(
 ): Promise<SynthesizedAudienceSegment[]> {
   // Collect all search results with source URLs for citations
   const searchData = rawData.audience.searches
+    .slice(0, 10)
     .map((s) => `- [Source: ${s.url}] ${s.title}: ${s.description || ""}`)
     .join("\n");
 
   const scrapedData = rawData.audience.scraped
-    .map((s) => `### Source: ${s.url}\n${truncateContent(s.content, 2000)}`)
+    .slice(0, 3)
+    .map((s) => `### Source: ${s.url}\n${truncateContent(s.content, 1000)}`)
     .join("\n\n");
 
   const socialData = rawData.social.scraped
-    .map((s) => `### Source: ${s.url}\n${truncateContent(s.content, 1000)}`)
+    .slice(0, 2)
+    .map((s) => `### Source: ${s.url}\n${truncateContent(s.content, 600)}`)
     .join("\n\n");
 
   // Include UGC platform data for richer audience insights with citations
   const redditData = rawData.reddit?.scraped
-    .map((s) => `### Reddit Source: ${s.url}\n${truncateContent(s.content, 800)}`)
+    .slice(0, 2)
+    .map((s) => `### Reddit Source: ${s.url}\n${truncateContent(s.content, 500)}`)
     .join("\n\n") || "";
 
   const amazonData = rawData.amazon?.scraped
-    .map((s) => `### Amazon Source: ${s.url}\n${truncateContent(s.content, 600)}`)
+    .slice(0, 2)
+    .map((s) => `### Amazon Source: ${s.url}\n${truncateContent(s.content, 400)}`)
     .join("\n\n") || "";
 
   const forumData = rawData.forums?.scraped
-    .map((s) => `### Forum Source: ${s.url}\n${truncateContent(s.content, 600)}`)
+    .slice(0, 2)
+    .map((s) => `### Forum Source: ${s.url}\n${truncateContent(s.content, 400)}`)
     .join("\n\n") || "";
 
   // Product-specific context for better targeting
@@ -515,52 +527,63 @@ export async function analyzePlatforms(
   context: { brand: Brand }
 ): Promise<PlatformInsight[]> {
   const socialData = rawData.social.searches
+    .slice(0, 6)
     .map((s) => `- ${s.title}: ${s.description || ""}`)
     .join("\n");
 
   const scrapedSocial = rawData.social.scraped
-    .map((s) => `### ${s.url}\n${truncateContent(s.content, 800)}`)
+    .slice(0, 2)
+    .map((s) => `### ${s.url}\n${truncateContent(s.content, 400)}`)
     .join("\n\n");
 
   // Reddit-specific data
   const redditSearches = rawData.reddit?.searches
+    .slice(0, 6)
     .map((s) => `- ${s.title}: ${s.description || ""}`)
     .join("\n") || "";
 
   const redditScraped = rawData.reddit?.scraped
-    .map((s) => `### ${s.url}\n${truncateContent(s.content, 800)}`)
+    .slice(0, 2)
+    .map((s) => `### ${s.url}\n${truncateContent(s.content, 400)}`)
     .join("\n\n") || "";
 
   // Amazon reviews data
   const amazonSearches = rawData.amazon?.searches
+    .slice(0, 6)
     .map((s) => `- ${s.title}: ${s.description || ""}`)
     .join("\n") || "";
 
   const amazonScraped = rawData.amazon?.scraped
-    .map((s) => `### ${s.url}\n${truncateContent(s.content, 600)}`)
+    .slice(0, 2)
+    .map((s) => `### ${s.url}\n${truncateContent(s.content, 400)}`)
     .join("\n\n") || "";
 
   // YouTube content data
   const youtubeSearches = rawData.youtube?.searches
+    .slice(0, 6)
     .map((s) => `- ${s.title}: ${s.description || ""}`)
     .join("\n") || "";
 
   const youtubeScraped = rawData.youtube?.scraped
-    .map((s) => `### ${s.url}\n${truncateContent(s.content, 600)}`)
+    .slice(0, 2)
+    .map((s) => `### ${s.url}\n${truncateContent(s.content, 400)}`)
     .join("\n\n") || "";
 
   // Google Reviews data
   const googleReviewsSearches = rawData.googleReviews?.searches
+    .slice(0, 6)
     .map((s) => `- ${s.title}: ${s.description || ""}`)
     .join("\n") || "";
 
   // Forums and review sites data
   const forumsSearches = rawData.forums?.searches
+    .slice(0, 6)
     .map((s) => `- ${s.title}: ${s.description || ""}`)
     .join("\n") || "";
 
   const forumsScraped = rawData.forums?.scraped
-    .map((s) => `### ${s.url}\n${truncateContent(s.content, 600)}`)
+    .slice(0, 2)
+    .map((s) => `### ${s.url}\n${truncateContent(s.content, 400)}`)
     .join("\n\n") || "";
 
   const prompt = `Analyze discussions and user-generated content about "${context.brand.name}" or the ${context.brand.industry} industry across multiple platforms.
@@ -758,26 +781,28 @@ export async function synthesizeFullReport(
   context: { brand: Brand; product?: Product | null },
   onProgress?: SynthesisProgressCallback
 ): Promise<SynthesizedReport> {
-  // Phase 1: Run independent analyses in parallel
-  onProgress?.("synthesizing", "Analyzing competitor landscape, trends, audience & platforms...", 0);
-  const [competitors, trends, audienceSegments, platformInsights] = await Promise.all([
-    synthesizeCompetitors(rawData, context),
-    synthesizeTrends(rawData, context),
-    synthesizeAudience(rawData, context),
-    analyzePlatforms(rawData, context),
-  ]);
-  onProgress?.("synthesizing", "Core analysis complete", 55);
+  // Run AI calls sequentially to avoid OpenRouter rate limiting
+  // and provide steady progress updates during synthesis
 
-  // Phase 2: Run dependent analyses in parallel (need audience/competitors/trends from phase 1)
-  onProgress?.("synthesizing", "Generating persona suggestions & content recommendations...", 65);
-  const [personaSuggestions, contentRecommendations] = await Promise.all([
-    suggestPersonas(audienceSegments, competitors, context),
-    recommendContent(trends, audienceSegments, platformInsights, context),
-  ]);
-  onProgress?.("synthesizing", "Suggestions complete", 85);
+  onProgress?.("synthesizing", "Analyzing competitors...", 0);
+  const competitors = await synthesizeCompetitors(rawData, context);
 
-  // Phase 3: Executive summary needs everything
-  onProgress?.("synthesizing", "Generating executive summary...", 90);
+  onProgress?.("synthesizing", "Analyzing market trends...", 14);
+  const trends = await synthesizeTrends(rawData, context);
+
+  onProgress?.("synthesizing", "Analyzing target audience...", 28);
+  const audienceSegments = await synthesizeAudience(rawData, context);
+
+  onProgress?.("synthesizing", "Analyzing platform insights...", 42);
+  const platformInsights = await analyzePlatforms(rawData, context);
+
+  onProgress?.("synthesizing", "Generating persona suggestions...", 56);
+  const personaSuggestions = await suggestPersonas(audienceSegments, competitors, context);
+
+  onProgress?.("synthesizing", "Generating content recommendations...", 70);
+  const contentRecommendations = await recommendContent(trends, audienceSegments, platformInsights, context);
+
+  onProgress?.("synthesizing", "Generating executive summary...", 85);
   const executiveSummary = await generateExecutiveSummary(
     competitors,
     trends,
