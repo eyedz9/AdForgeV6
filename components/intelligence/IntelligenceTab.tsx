@@ -19,8 +19,9 @@
 
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import type { IntelligenceReport } from "@/lib/supabase/database.types";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import type { IntelligenceReport, Product } from "@/lib/supabase/database.types";
+import { getProducts } from "@/app/actions/products";
 import type {
   CompetitorData,
   SearchTrendData,
@@ -29,13 +30,27 @@ import type {
   AudienceInsightData,
   AttributedSource,
 } from "@/lib/api/brightdata";
+import type {
+  SentimentAnalysis,
+  TopicCluster,
+  PurchaseIntentAnalysis,
+  CompetitivePositioning,
+} from "@/lib/services/intelligence-synthesizer";
+import type { MediaAffinityReport } from "@/lib/services/media-affinity-engine";
 import IntelligenceProgress from "./IntelligenceProgress";
 import PersonaSuggestions from "./PersonaSuggestions";
 import PlatformInsights from "./PlatformInsights";
+import SentimentDashboard from "./SentimentDashboard";
+import TopicClustersSection from "./TopicClustersSection";
+import PurchaseIntentSection from "./PurchaseIntentSection";
+import CompetitivePositioningSection from "./CompetitivePositioningSection";
+import MediaAffinityDashboard from "./MediaAffinityDashboard";
+import ExportDropdown from "./ExportDropdown";
 
 // Props for the IntelligenceTab component
 interface IntelligenceTabProps {
   brandId: string;
+  brandName?: string;
 }
 
 // Executive Summary type
@@ -115,6 +130,11 @@ interface ParsedReport {
   persona_suggestions: PersonaSuggestion[];
   platform_insights: PlatformInsight[];
   content_recommendations: ContentRecommendation[];
+  sentiment_analysis: SentimentAnalysis | null;
+  topic_clusters: TopicCluster | null;
+  purchase_intent: PurchaseIntentAnalysis | null;
+  competitive_positioning: CompetitivePositioning | null;
+  media_affinity: MediaAffinityReport | null;
   created_at: string;
   updated_at: string;
 }
@@ -157,7 +177,55 @@ function parseReport(report: IntelligenceReport): ParsedReport {
     persona_suggestions: (report.persona_suggestions as PersonaSuggestion[] | null) ?? [],
     platform_insights: (report.platform_insights as PlatformInsight[] | null) ?? [],
     content_recommendations: (report.content_recommendations as ContentRecommendation[] | null) ?? [],
+    sentiment_analysis: parseSentimentAnalysis(report.sentiment_analysis),
+    topic_clusters: parseTopicClusters(report.topic_clusters),
+    purchase_intent: parsePurchaseIntent(report.purchase_intent),
+    competitive_positioning: parseCompetitivePositioning(report.competitive_positioning),
+    media_affinity: parseMediaAffinity(report.media_affinity),
   };
+}
+
+function parseSentimentAnalysis(raw: unknown): SentimentAnalysis | null {
+  if (!raw || typeof raw !== "object") return null;
+  const data = raw as Record<string, unknown>;
+  if (!data.overall && (!Array.isArray(data.byPlatform) || data.byPlatform.length === 0)) return null;
+  return raw as SentimentAnalysis;
+}
+
+function parseTopicClusters(raw: unknown): TopicCluster | null {
+  if (!raw || typeof raw !== "object") return null;
+  const data = raw as Record<string, unknown>;
+  if (!Array.isArray(data.clusters) || data.clusters.length === 0) return null;
+  return raw as TopicCluster;
+}
+
+function parsePurchaseIntent(raw: unknown): PurchaseIntentAnalysis | null {
+  if (!raw || typeof raw !== "object") return null;
+  const data = raw as Record<string, unknown>;
+  if (!Array.isArray(data.signals) || data.signals.length === 0) return null;
+  return raw as PurchaseIntentAnalysis;
+}
+
+function parseCompetitivePositioning(raw: unknown): CompetitivePositioning | null {
+  if (!raw || typeof raw !== "object") return null;
+  const data = raw as Record<string, unknown>;
+  const hasData =
+    (Array.isArray(data.priceComparison) && data.priceComparison.length > 0) ||
+    (Array.isArray(data.featureComparison) && data.featureComparison.length > 0) ||
+    (Array.isArray(data.reviewComparison) && data.reviewComparison.length > 0);
+  if (!hasData) return null;
+  return raw as CompetitivePositioning;
+}
+
+function parseMediaAffinity(raw: unknown): MediaAffinityReport | null {
+  if (!raw || typeof raw !== "object") return null;
+  const data = raw as Record<string, unknown>;
+  const hasData =
+    (Array.isArray(data.platformAffinity) && data.platformAffinity.length > 0) ||
+    (Array.isArray(data.contentFormatAffinity) && data.contentFormatAffinity.length > 0) ||
+    (Array.isArray(data.channelRecommendations) && data.channelRecommendations.length > 0);
+  if (!hasData) return null;
+  return raw as MediaAffinityReport;
 }
 
 // Format date for display
@@ -166,6 +234,36 @@ function formatDate(dateString: string | null): string {
   const date = new Date(dateString);
   return date.toLocaleDateString("en-US", {
     year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+// Generate a descriptive label for a report based on scope + name
+// e.g. "brand_nervive" or "product_nerve_relief"
+function buildReportLabel(
+  report: ParsedReport,
+  brandName: string | undefined,
+  products: Product[],
+): string {
+  const slugify = (s: string) =>
+    s.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+
+  if (report.product_id) {
+    const product = products.find((p) => p.id === report.product_id);
+    const name = product?.name || "unknown";
+    return `product_${slugify(name)}`;
+  }
+  return `brand_${slugify(brandName || "report")}`;
+}
+
+// Format a short date for history items (no time for compact display)
+function formatShortDate(dateString: string | null): string {
+  if (!dateString) return "N/A";
+  const date = new Date(dateString);
+  return date.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     hour: "2-digit",
@@ -698,14 +796,56 @@ function AudienceSection({
           {segment.demographics && (
             <div className="audience-demographics">
               {segment.demographics.ageRange && (
-                <span><strong>Age:</strong> {segment.demographics.ageRange}</span>
+                <span className="demo-field">
+                  <strong>Age:</strong> {segment.demographics.ageRange}
+                  {segment.demographics.confidenceScores?.age != null && (
+                    <span className="confidence-dot" style={{ opacity: segment.demographics.confidenceScores.age }} title={`${Math.round(segment.demographics.confidenceScores.age * 100)}% confidence`} />
+                  )}
+                </span>
               )}
               {segment.demographics.gender && (
-                <span><strong>Gender:</strong> {segment.demographics.gender}</span>
+                <span className="demo-field">
+                  <strong>Gender:</strong> {segment.demographics.gender}
+                  {segment.demographics.confidenceScores?.gender != null && (
+                    <span className="confidence-dot" style={{ opacity: segment.demographics.confidenceScores.gender }} title={`${Math.round(segment.demographics.confidenceScores.gender * 100)}% confidence`} />
+                  )}
+                </span>
               )}
               {segment.demographics.income && (
-                <span><strong>Income:</strong> {segment.demographics.income}</span>
+                <span className="demo-field">
+                  <strong>Income:</strong> {segment.demographics.income}
+                  {segment.demographics.confidenceScores?.income != null && (
+                    <span className="confidence-dot" style={{ opacity: segment.demographics.confidenceScores.income }} title={`${Math.round(segment.demographics.confidenceScores.income * 100)}% confidence`} />
+                  )}
+                </span>
               )}
+            </div>
+          )}
+          {segment.lifeStageSignals && segment.lifeStageSignals.length > 0 && (
+            <div className="audience-tags">
+              <span className="tag-label">Life Stage:</span>
+              {segment.lifeStageSignals.map((ls: { lifeStage: string; confidence: number }, i: number) => (
+                <span key={i} className="life-stage-tag" style={{ opacity: 0.5 + ls.confidence * 0.5 }}>
+                  {ls.lifeStage.replace(/_/g, " ")}
+                </span>
+              ))}
+            </div>
+          )}
+          {segment.culturalAffinityMarkers && segment.culturalAffinityMarkers.length > 0 && (
+            <div className="audience-tags">
+              <span className="tag-label">Cultural Affinity:</span>
+              {segment.culturalAffinityMarkers.map((ca: { marker: string; strength: string }, i: number) => {
+                const strengthColors: Record<string, string> = {
+                  strong: "var(--color-plasma-emerald)",
+                  moderate: "var(--color-plasma-amber)",
+                  weak: "var(--color-text-muted)",
+                };
+                return (
+                  <span key={i} className="cultural-tag" style={{ color: strengthColors[ca.strength] || "var(--color-text-muted)", borderColor: strengthColors[ca.strength] || "var(--color-text-muted)" }}>
+                    {ca.marker}
+                  </span>
+                );
+              })}
             </div>
           )}
           {segment.interests && segment.interests.length > 0 && (
@@ -803,6 +943,39 @@ function AudienceSection({
           background: rgba(245, 158, 11, 0.15);
           color: var(--color-plasma-amber);
           border: 1px solid rgba(245, 158, 11, 0.2);
+          border-radius: 6px;
+          font-size: 0.6875rem;
+          font-weight: 500;
+        }
+        .demo-field {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.375rem;
+        }
+        .confidence-dot {
+          display: inline-block;
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: var(--color-plasma-emerald);
+          flex-shrink: 0;
+        }
+        .life-stage-tag {
+          display: inline-flex;
+          padding: 0.25rem 0.5rem;
+          background: rgba(6, 182, 212, 0.15);
+          color: var(--color-plasma-cyan);
+          border: 1px solid rgba(6, 182, 212, 0.2);
+          border-radius: 6px;
+          font-size: 0.6875rem;
+          font-weight: 500;
+          text-transform: capitalize;
+        }
+        .cultural-tag {
+          display: inline-flex;
+          padding: 0.25rem 0.5rem;
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid;
           border-radius: 6px;
           font-size: 0.6875rem;
           font-weight: 500;
@@ -1170,11 +1343,18 @@ function ErrorState({
 }
 
 // Main IntelligenceTab component
-export default function IntelligenceTab({ brandId }: IntelligenceTabProps) {
+export default function IntelligenceTab({ brandId, brandName }: IntelligenceTabProps) {
   const [reports, setReports] = useState<ParsedReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showScopePicker, setShowScopePicker] = useState(false);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [selectedScope, setSelectedScope] = useState<"brand" | string>("brand");
+  const [selectedHistoryIndex, setSelectedHistoryIndex] = useState<number>(0);
+  const [showHistoryDropdown, setShowHistoryDropdown] = useState<boolean>(false);
+  const historyDropdownRef = useRef<HTMLDivElement>(null);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     summary: true,
     personas: false,
@@ -1182,7 +1362,68 @@ export default function IntelligenceTab({ brandId }: IntelligenceTabProps) {
     trends: false,
     audience: false,
     platforms: false,
+    sentiment: false,
+    topicClusters: false,
+    purchaseIntent: false,
+    competitivePositioning: false,
+    mediaAffinity: false,
   });
+
+  // Fetch products for scope picker
+  useEffect(() => {
+    getProducts(brandId).then((result) => {
+      if (result.success) {
+        setProducts(result.data);
+      }
+    });
+  }, [brandId]);
+
+  // Group reports by scope (brand vs product)
+  const groupedReports = useMemo(() => {
+    const groups: Record<string, ParsedReport[]> = { brand: [] };
+    for (const product of products) {
+      groups[product.id] = [];
+    }
+    for (const report of reports) {
+      const key = report.product_id ?? "brand";
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(report);
+    }
+    return groups;
+  }, [reports, products]);
+
+  const scopeReports = groupedReports[selectedScope] || [];
+  const currentReport = scopeReports[selectedHistoryIndex] ?? null;
+
+  // Build scope tab items
+  const scopeTabs = useMemo(() => {
+    const tabs: { key: string; label: string; count: number; hasReports: boolean }[] = [
+      { key: "brand", label: brandName || "Brand", count: groupedReports.brand?.length || 0, hasReports: (groupedReports.brand?.length || 0) > 0 },
+    ];
+    for (const product of products) {
+      const count = groupedReports[product.id]?.length || 0;
+      tabs.push({ key: product.id, label: product.name, count, hasReports: count > 0 });
+    }
+    return tabs;
+  }, [products, groupedReports, brandName]);
+
+  // Reset history index when scope changes
+  useEffect(() => {
+    setSelectedHistoryIndex(0);
+    setShowHistoryDropdown(false);
+  }, [selectedScope]);
+
+  // Click-outside handler for history dropdown
+  useEffect(() => {
+    if (!showHistoryDropdown) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (historyDropdownRef.current && !historyDropdownRef.current.contains(e.target as Node)) {
+        setShowHistoryDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showHistoryDropdown]);
 
   // Fetch existing reports
   const fetchReports = useCallback(async () => {
@@ -1212,8 +1453,24 @@ export default function IntelligenceTab({ brandId }: IntelligenceTabProps) {
     fetchReports();
   }, [fetchReports]);
 
-  // Start generating report (with SSE)
+  // Generate report for the currently selected scope (no scope picker needed)
   const handleGenerateReport = () => {
+    const productId = selectedScope === "brand" ? null : selectedScope;
+    startGeneration(productId);
+  };
+
+  // Show scope picker for new report (lets user pick a different scope)
+  const handleNewReport = () => {
+    setSelectedProductId(null);
+    setShowScopePicker(true);
+    setError(null);
+  };
+
+  // Start generating report after scope selection
+  const startGeneration = (productId: string | null) => {
+    setSelectedProductId(productId);
+    setSelectedScope(productId ?? "brand");
+    setShowScopePicker(false);
     setIsGenerating(true);
     setError(null);
   };
@@ -1253,37 +1510,400 @@ export default function IntelligenceTab({ brandId }: IntelligenceTabProps) {
     return (
       <IntelligenceProgress
         brandId={brandId}
+        productId={selectedProductId}
         onComplete={handleGenerationComplete}
         onError={handleGenerationError}
       />
     );
   }
 
-  // Empty state
+  // Scope picker overlay
+  const scopePickerOverlay = showScopePicker && (
+    <div className="scope-picker-overlay" onClick={() => setShowScopePicker(false)}>
+      <div className="scope-picker" onClick={(e) => e.stopPropagation()}>
+        <div className="scope-picker-header">
+          <h3>Choose Research Scope</h3>
+          <button className="scope-picker-close" onClick={() => setShowScopePicker(false)}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+        <div className="scope-options">
+          <button
+            className="scope-option"
+            onClick={() => startGeneration(null)}
+          >
+            <div className="scope-option-icon">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+              </svg>
+            </div>
+            <div className="scope-option-text">
+              <span className="scope-option-title">Brand Research</span>
+              <span className="scope-option-desc">
+                General market intelligence &mdash; competitors, trends, audience insights across your entire brand.
+              </span>
+            </div>
+            <svg className="scope-option-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </button>
+
+          {products.length > 0 && (
+            <div className="scope-product-section">
+              <div className="scope-product-label">Product Research</div>
+              <p className="scope-product-desc">
+                Deep-dive into a specific product &mdash; includes targeted audience, competitive, and purchase intent analysis.
+              </p>
+              <div className="scope-product-list">
+                {products.map((product) => (
+                  <button
+                    key={product.id}
+                    className="scope-product-item"
+                    onClick={() => startGeneration(product.id)}
+                  >
+                    <div className="scope-product-info">
+                      <span className="scope-product-name">{product.name}</span>
+                      {product.product_type && (
+                        <span className="scope-product-type">{product.product_type}</span>
+                      )}
+                    </div>
+                    <svg className="scope-option-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="9 18 15 12 9 6" />
+                    </svg>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+        <style>{`
+          .scope-picker-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            animation: fadeIn 0.15s ease;
+          }
+          @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+          .scope-picker {
+            background: var(--color-surface, #1a1a2e);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            border-radius: 16px;
+            width: 90%;
+            max-width: 480px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            animation: slideUp 0.2s ease;
+          }
+          @keyframes slideUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+          .scope-picker-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+          }
+          .scope-picker-header h3 {
+            margin: 0;
+            font-size: 1.125rem;
+            font-weight: 700;
+            color: var(--color-text-primary, #fff);
+            letter-spacing: -0.02em;
+          }
+          .scope-picker-close {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: rgba(255, 255, 255, 0.06);
+            border-radius: 8px;
+            color: var(--color-text-secondary, #999);
+            cursor: pointer;
+            transition: all 0.15s ease;
+          }
+          .scope-picker-close:hover {
+            background: rgba(255, 255, 255, 0.12);
+            color: var(--color-text-primary, #fff);
+          }
+          .scope-options {
+            padding: 1rem 1.5rem 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+          }
+          .scope-option {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem 1.25rem;
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            border-radius: 12px;
+            background: rgba(139, 92, 246, 0.04);
+            cursor: pointer;
+            text-align: left;
+            transition: all 0.2s ease;
+            color: var(--color-text-primary, #fff);
+            width: 100%;
+          }
+          .scope-option:hover {
+            background: rgba(139, 92, 246, 0.1);
+            border-color: rgba(139, 92, 246, 0.5);
+            transform: translateY(-1px);
+          }
+          .scope-option-icon {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 48px;
+            height: 48px;
+            background: rgba(139, 92, 246, 0.12);
+            border-radius: 10px;
+            color: var(--color-plasma-violet, #8b5cf6);
+          }
+          .scope-option-text {
+            flex: 1;
+            min-width: 0;
+          }
+          .scope-option-title {
+            display: block;
+            font-size: 0.9375rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+          }
+          .scope-option-desc {
+            display: block;
+            font-size: 0.8125rem;
+            color: var(--color-text-secondary, #999);
+            line-height: 1.45;
+          }
+          .scope-option-arrow {
+            flex-shrink: 0;
+            color: var(--color-text-secondary, #999);
+            opacity: 0.5;
+          }
+          .scope-product-section {
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 1rem 1.25rem;
+          }
+          .scope-product-label {
+            font-size: 0.9375rem;
+            font-weight: 600;
+            color: var(--color-text-primary, #fff);
+            margin-bottom: 0.25rem;
+          }
+          .scope-product-desc {
+            font-size: 0.8125rem;
+            color: var(--color-text-secondary, #999);
+            line-height: 1.45;
+            margin: 0 0 0.75rem;
+          }
+          .scope-product-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.375rem;
+          }
+          .scope-product-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            padding: 0.625rem 0.875rem;
+            border: 1px solid rgba(139, 92, 246, 0.15);
+            border-radius: 8px;
+            background: rgba(139, 92, 246, 0.04);
+            cursor: pointer;
+            text-align: left;
+            transition: all 0.15s ease;
+            color: var(--color-text-primary, #fff);
+            width: 100%;
+          }
+          .scope-product-item:hover {
+            background: rgba(139, 92, 246, 0.1);
+            border-color: rgba(139, 92, 246, 0.4);
+          }
+          .scope-product-info {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            min-width: 0;
+          }
+          .scope-product-name {
+            font-size: 0.875rem;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+          .scope-product-type {
+            font-size: 0.6875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 0.125rem 0.5rem;
+            background: rgba(139, 92, 246, 0.15);
+            border-radius: 4px;
+            color: var(--color-plasma-violet, #8b5cf6);
+            flex-shrink: 0;
+          }
+        `}</style>
+      </div>
+    </div>
+  );
+
+  // Empty state (no reports at all)
   if (reports.length === 0) {
     return (
-      <EmptyState onGenerate={handleGenerateReport} isGenerating={isGenerating} />
+      <>
+        <EmptyState onGenerate={handleNewReport} isGenerating={isGenerating} />
+        {scopePickerOverlay}
+      </>
     );
   }
 
-  // Get the most recent report
-  const currentReport = reports[0];
-  const isExpired = isReportExpired(currentReport.expires_at);
-  const daysLeft = daysUntilExpiration(currentReport.expires_at);
+  const isExpired = currentReport ? isReportExpired(currentReport.expires_at) : false;
+  const daysLeft = currentReport ? daysUntilExpiration(currentReport.expires_at) : null;
+
+  // Find the product name for the selected scope
+  const selectedProductName = selectedScope !== "brand"
+    ? products.find(p => p.id === selectedScope)?.name
+    : null;
 
   return (
+    <>
     <div className="intelligence-tab">
+      {/* Scope Navigator */}
+      <div className="scope-navigator">
+        <div className="scope-tabs">
+          {scopeTabs.map((tab) => (
+            <button
+              key={tab.key}
+              className={`scope-tab ${selectedScope === tab.key ? "active" : ""} ${!tab.hasReports ? "no-reports" : ""}`}
+              onClick={() => setSelectedScope(tab.key)}
+            >
+              {tab.key === "brand" ? (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+                  <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+                </svg>
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                </svg>
+              )}
+              <span className="scope-tab-label">{tab.label}</span>
+              {tab.count > 0 && <span className="scope-tab-count">{tab.count}</span>}
+            </button>
+          ))}
+        </div>
+        <button className="btn-new-report" onClick={handleNewReport} title="New report with scope picker">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Per-scope empty state */}
+      {!currentReport && (
+        <div className="scope-empty-state">
+          <div className="scope-empty-icon">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <line x1="18" y1="20" x2="18" y2="10" />
+              <line x1="12" y1="20" x2="12" y2="4" />
+              <line x1="6" y1="20" x2="6" y2="14" />
+            </svg>
+          </div>
+          <h3 className="scope-empty-title">
+            {selectedScope === "brand"
+              ? "No brand-level report yet"
+              : `No report for ${selectedProductName || "this product"}`}
+          </h3>
+          <p className="scope-empty-desc">
+            {selectedScope === "brand"
+              ? "Generate a brand intelligence report to discover competitors, trends, and audience insights."
+              : `Generate a product-specific report for targeted audience, competitive, and purchase intent analysis.`}
+          </p>
+          <button className="btn-generate" onClick={handleGenerateReport} disabled={isGenerating}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+            </svg>
+            Generate Report
+          </button>
+        </div>
+      )}
+
+      {/* Report content — only when a report exists for this scope */}
+      {currentReport && (
+      <>
       {/* Report Header */}
       <div className="report-header">
         <div className="report-info">
           <h3 className="report-title">
-            Market Intelligence Report
+            {selectedScope === "brand" ? "Brand Intelligence Report" : "Product Report"}
+            {selectedScope !== "brand" && selectedProductName && (
+              <span className="report-scope-badge">{selectedProductName}</span>
+            )}
             {currentReport.report_type && (
               <span className="report-type">{currentReport.report_type}</span>
             )}
           </h3>
+          <span className="report-label-slug">{buildReportLabel(currentReport, brandName, products)}</span>
           <div className="report-meta">
             <span>Generated {formatDate(currentReport.generated_at)}</span>
+            {scopeReports.length > 1 && (
+              <div className="history-container" ref={historyDropdownRef}>
+                <button
+                  className="history-toggle"
+                  onClick={() => setShowHistoryDropdown(!showHistoryDropdown)}
+                >
+                  {selectedHistoryIndex + 1} / {scopeReports.length}
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </button>
+                {showHistoryDropdown && (
+                  <div className="history-dropdown">
+                    {scopeReports.map((r, i) => (
+                      <button
+                        key={r.id}
+                        className={`history-item ${i === selectedHistoryIndex ? "active" : ""}`}
+                        onClick={() => {
+                          setSelectedHistoryIndex(i);
+                          setShowHistoryDropdown(false);
+                        }}
+                      >
+                        <div className="history-item-info">
+                          <span className="history-item-label">{buildReportLabel(r, brandName, products)}</span>
+                          <span className="history-item-date">{formatShortDate(r.generated_at)}</span>
+                        </div>
+                        <span className="history-item-badges">
+                          {i === 0 && <span className="history-badge latest">Latest</span>}
+                          {isReportExpired(r.expires_at) && <span className="history-badge expired">Expired</span>}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             {currentReport.expires_at && (
               <span className={`expiry-badge ${isExpired ? "expired" : daysLeft != null && daysLeft <= 7 ? "expiring" : ""}`}>
                 {isExpired
@@ -1296,6 +1916,7 @@ export default function IntelligenceTab({ brandId }: IntelligenceTabProps) {
           </div>
         </div>
         <div className="report-actions">
+          <ExportDropdown report={currentReport} brandName={brandName || "report"} />
           <button
             className="btn-refresh"
             onClick={handleGenerateReport}
@@ -1434,6 +2055,201 @@ export default function IntelligenceTab({ brandId }: IntelligenceTabProps) {
         </section>
       )}
 
+      {/* Sentiment Analysis Section */}
+      {currentReport.sentiment_analysis && (
+        <section className="report-section">
+          <button
+            className="section-header"
+            onClick={() => toggleSection("sentiment")}
+          >
+            <div className="section-title">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M8 14s1.5 2 4 2 4-2 4-2" />
+                <line x1="9" y1="9" x2="9.01" y2="9" />
+                <line x1="15" y1="9" x2="15.01" y2="9" />
+              </svg>
+              <span>Sentiment Analysis</span>
+              {currentReport.sentiment_analysis.byPlatform && (
+                <span className="section-count">{currentReport.sentiment_analysis.byPlatform.length} platforms</span>
+              )}
+            </div>
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              className={`chevron ${expandedSections.sentiment ? "expanded" : ""}`}
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+          {expandedSections.sentiment && (
+            <div className="section-content">
+              <SentimentDashboard data={currentReport.sentiment_analysis} />
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Topic Clusters Section */}
+      {currentReport.topic_clusters && (
+        <section className="report-section">
+          <button
+            className="section-header"
+            onClick={() => toggleSection("topicClusters")}
+          >
+            <div className="section-title">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="3" />
+                <circle cx="19" cy="6" r="2" />
+                <circle cx="5" cy="6" r="2" />
+                <circle cx="19" cy="18" r="2" />
+                <circle cx="5" cy="18" r="2" />
+                <line x1="14" y1="10" x2="17.5" y2="7.5" />
+                <line x1="10" y1="10" x2="6.5" y2="7.5" />
+                <line x1="14" y1="14" x2="17.5" y2="16.5" />
+                <line x1="10" y1="14" x2="6.5" y2="16.5" />
+              </svg>
+              <span>Topic Clusters</span>
+              {currentReport.topic_clusters.clusters && (
+                <span className="section-count">{currentReport.topic_clusters.clusters.length}</span>
+              )}
+            </div>
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              className={`chevron ${expandedSections.topicClusters ? "expanded" : ""}`}
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+          {expandedSections.topicClusters && (
+            <div className="section-content">
+              <TopicClustersSection data={currentReport.topic_clusters} />
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Purchase Intent Section */}
+      {currentReport.purchase_intent && (
+        <section className="report-section">
+          <button
+            className="section-header"
+            onClick={() => toggleSection("purchaseIntent")}
+          >
+            <div className="section-title">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="9" cy="21" r="1" />
+                <circle cx="20" cy="21" r="1" />
+                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+              </svg>
+              <span>Purchase Intent</span>
+              {currentReport.purchase_intent.signals && (
+                <span className="section-count">{currentReport.purchase_intent.signals.length} signals</span>
+              )}
+            </div>
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              className={`chevron ${expandedSections.purchaseIntent ? "expanded" : ""}`}
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+          {expandedSections.purchaseIntent && (
+            <div className="section-content">
+              <PurchaseIntentSection data={currentReport.purchase_intent} />
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Competitive Positioning Section */}
+      {currentReport.competitive_positioning && (
+        <section className="report-section">
+          <button
+            className="section-header"
+            onClick={() => toggleSection("competitivePositioning")}
+          >
+            <div className="section-title">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="3" width="7" height="7" />
+                <rect x="14" y="3" width="7" height="7" />
+                <rect x="14" y="14" width="7" height="7" />
+                <rect x="3" y="14" width="7" height="7" />
+              </svg>
+              <span>Competitive Positioning</span>
+            </div>
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              className={`chevron ${expandedSections.competitivePositioning ? "expanded" : ""}`}
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+          {expandedSections.competitivePositioning && (
+            <div className="section-content">
+              <CompetitivePositioningSection data={currentReport.competitive_positioning} />
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Media Affinity Section */}
+      {currentReport.media_affinity && (
+        <section className="report-section">
+          <button
+            className="section-header"
+            onClick={() => toggleSection("mediaAffinity")}
+          >
+            <div className="section-title">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 20V10" />
+                <path d="M18 20V4" />
+                <path d="M6 20v-4" />
+              </svg>
+              <span>Media Affinity</span>
+              {currentReport.media_affinity.channelRecommendations && (
+                <span className="section-count">{currentReport.media_affinity.channelRecommendations.length} channels</span>
+              )}
+            </div>
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              className={`chevron ${expandedSections.mediaAffinity ? "expanded" : ""}`}
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+          {expandedSections.mediaAffinity && (
+            <div className="section-content">
+              <MediaAffinityDashboard data={currentReport.media_affinity} />
+            </div>
+          )}
+        </section>
+      )}
+
       {/* Competitors Section */}
       <section className="report-section">
         <button
@@ -1539,12 +2355,263 @@ export default function IntelligenceTab({ brandId }: IntelligenceTabProps) {
 
       {/* Sources */}
       <SourcesSection sources={currentReport.sources} />
+      </>
+      )}
 
       <style>{`
         .intelligence-tab {
           display: flex;
           flex-direction: column;
           gap: 1.5rem;
+        }
+
+        /* Scope Navigator */
+        .scope-navigator {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          background: var(--color-surface);
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          border-radius: 12px;
+          padding: 0.5rem;
+        }
+        .scope-tabs {
+          display: flex;
+          align-items: center;
+          gap: 0.375rem;
+          flex: 1;
+          overflow-x: auto;
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+        .scope-tabs::-webkit-scrollbar {
+          display: none;
+        }
+        .scope-tab {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.375rem;
+          padding: 0.5rem 0.875rem;
+          background: transparent;
+          border: 1px solid transparent;
+          border-radius: 8px;
+          color: var(--color-text-secondary);
+          font-size: 0.8125rem;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          white-space: nowrap;
+          flex-shrink: 0;
+        }
+        .scope-tab:hover {
+          background: rgba(255, 255, 255, 0.04);
+          color: var(--color-text-primary);
+        }
+        .scope-tab.active {
+          background: rgba(139, 92, 246, 0.12);
+          border-color: rgba(139, 92, 246, 0.3);
+          color: var(--color-plasma-violet);
+          font-weight: 600;
+        }
+        .scope-tab.active svg {
+          filter: drop-shadow(0 0 4px rgba(139, 92, 246, 0.5));
+        }
+        .scope-tab.no-reports {
+          opacity: 0.5;
+        }
+        .scope-tab.no-reports.active {
+          opacity: 1;
+        }
+        .scope-tab-label {
+          max-width: 120px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .scope-tab-count {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 18px;
+          height: 18px;
+          padding: 0 0.25rem;
+          background: rgba(139, 92, 246, 0.15);
+          color: var(--color-plasma-violet);
+          border-radius: 9px;
+          font-size: 0.625rem;
+          font-weight: 700;
+        }
+        .btn-new-report {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 32px;
+          height: 32px;
+          border: 1px solid rgba(139, 92, 246, 0.25);
+          border-radius: 8px;
+          background: rgba(139, 92, 246, 0.08);
+          color: var(--color-plasma-violet);
+          cursor: pointer;
+          transition: all 0.2s ease;
+          flex-shrink: 0;
+        }
+        .btn-new-report:hover {
+          background: rgba(139, 92, 246, 0.18);
+          border-color: rgba(139, 92, 246, 0.5);
+          transform: scale(1.05);
+        }
+
+        /* Report Scope Badge */
+        .report-scope-badge {
+          display: inline-flex;
+          padding: 0.25rem 0.75rem;
+          background: rgba(6, 182, 212, 0.15);
+          color: var(--color-plasma-cyan);
+          border: 1px solid rgba(6, 182, 212, 0.25);
+          border-radius: 8px;
+          font-size: 0.75rem;
+          font-weight: 600;
+        }
+
+        /* History Dropdown */
+        .history-container {
+          position: relative;
+        }
+        .history-toggle {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.375rem;
+          padding: 0.25rem 0.625rem;
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 6px;
+          color: var(--color-text-secondary);
+          font-size: 0.8125rem;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        .history-toggle:hover {
+          background: rgba(139, 92, 246, 0.1);
+          border-color: rgba(139, 92, 246, 0.3);
+          color: var(--color-plasma-violet);
+        }
+        .history-dropdown {
+          position: absolute;
+          top: calc(100% + 4px);
+          left: 0;
+          min-width: 260px;
+          background: var(--color-elevated, #1e1e36);
+          border: 1px solid rgba(139, 92, 246, 0.3);
+          border-radius: 10px;
+          padding: 0.375rem;
+          box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+          z-index: 100;
+          animation: slideUp 0.15s ease;
+        }
+        .history-item {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.5rem;
+          width: 100%;
+          padding: 0.5rem 0.75rem;
+          background: transparent;
+          border: none;
+          border-radius: 6px;
+          color: var(--color-text-secondary);
+          font-size: 0.8125rem;
+          cursor: pointer;
+          text-align: left;
+          transition: all 0.15s ease;
+        }
+        .history-item:hover {
+          background: rgba(139, 92, 246, 0.1);
+          color: var(--color-text-primary);
+        }
+        .history-item.active {
+          background: rgba(139, 92, 246, 0.15);
+          color: var(--color-plasma-violet);
+          font-weight: 600;
+        }
+        .history-item-info {
+          display: flex;
+          flex-direction: column;
+          gap: 0.125rem;
+          flex: 1;
+          min-width: 0;
+        }
+        .history-item-label {
+          font-family: monospace;
+          font-size: 0.75rem;
+          color: var(--color-text-primary);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .history-item-date {
+          font-size: 0.6875rem;
+          color: var(--color-text-muted);
+        }
+        .history-item-badges {
+          display: flex;
+          gap: 0.25rem;
+        }
+        .history-badge {
+          padding: 0.125rem 0.375rem;
+          border-radius: 4px;
+          font-size: 0.625rem;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.03em;
+        }
+        .history-badge.latest {
+          background: rgba(16, 185, 129, 0.15);
+          color: var(--color-plasma-emerald);
+        }
+        .history-badge.expired {
+          background: rgba(244, 63, 94, 0.15);
+          color: var(--color-plasma-rose);
+        }
+
+        /* Per-scope Empty State */
+        .scope-empty-state {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 3rem 2rem;
+          background: var(--color-surface);
+          border: 1px dashed rgba(139, 92, 246, 0.25);
+          border-radius: 16px;
+          text-align: center;
+          position: relative;
+          overflow: hidden;
+        }
+        .scope-empty-state::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: radial-gradient(ellipse at center, rgba(139, 92, 246, 0.04) 0%, transparent 70%);
+          pointer-events: none;
+        }
+        .scope-empty-icon {
+          color: var(--color-plasma-violet);
+          margin-bottom: 1.25rem;
+          opacity: 0.6;
+          filter: drop-shadow(0 0 15px rgba(139, 92, 246, 0.3));
+        }
+        .scope-empty-title {
+          font-size: 1.125rem;
+          font-weight: 700;
+          color: var(--color-text-primary);
+          margin: 0 0 0.5rem;
+          letter-spacing: -0.02em;
+        }
+        .scope-empty-desc {
+          font-size: 0.875rem;
+          color: var(--color-text-secondary);
+          margin: 0 0 1.5rem;
+          max-width: 380px;
+          line-height: 1.6;
         }
 
         /* Report Header */
@@ -1597,6 +2664,13 @@ export default function IntelligenceTab({ brandId }: IntelligenceTabProps) {
           font-weight: 600;
           text-transform: uppercase;
           letter-spacing: 0.04em;
+        }
+        .report-label-slug {
+          font-size: 0.75rem;
+          font-family: monospace;
+          color: var(--color-text-muted);
+          opacity: 0.7;
+          letter-spacing: 0.02em;
         }
         .report-meta {
           display: flex;
@@ -1767,9 +2841,22 @@ export default function IntelligenceTab({ brandId }: IntelligenceTabProps) {
         }
 
         @media (max-width: 640px) {
+          .scope-navigator {
+            border-radius: 10px;
+          }
+          .scope-tab {
+            padding: 0.375rem 0.625rem;
+            font-size: 0.75rem;
+          }
+          .scope-tab-label {
+            max-width: 80px;
+          }
           .report-header {
             flex-direction: column;
             padding: 1.25rem;
+          }
+          .report-title {
+            flex-wrap: wrap;
           }
           .report-actions {
             width: 100%;
@@ -1784,8 +2871,13 @@ export default function IntelligenceTab({ brandId }: IntelligenceTabProps) {
           .section-content {
             padding: 0 1.25rem 1.25rem;
           }
+          .history-dropdown {
+            min-width: 220px;
+          }
         }
       `}</style>
     </div>
+    {scopePickerOverlay}
+    </>
   );
 }

@@ -20,7 +20,7 @@ export interface ClaudeRequestConfig {
  */
 const DEFAULT_CONFIG: Required<ClaudeRequestConfig> = {
   model: "anthropic/claude-sonnet-4", // OpenRouter model format
-  maxTokens: 4096,
+  maxTokens: 12288,
   temperature: 0.3, // Lower temperature for more consistent structured output
   systemPrompt: "You are an expert market intelligence analyst. Provide accurate, data-driven insights.",
 };
@@ -174,10 +174,106 @@ export async function sendMessageForJSON<T>(
 
     return parsed as T;
   } catch (error) {
+    // Attempt to repair truncated JSON (common when maxTokens is hit)
+    const repaired = tryRepairTruncatedJSON(jsonStr);
+    if (repaired !== null) {
+      console.warn("Repaired truncated JSON response");
+      return repaired as T;
+    }
+
     console.error("Failed to parse Claude response as JSON:", response.slice(0, 500));
     throw new Error(
       `Failed to parse Claude response as JSON: ${error instanceof Error ? error.message : "Unknown error"}`
     );
+  }
+}
+
+/**
+ * Attempt to repair truncated JSON by closing open structures.
+ * Handles responses cut off mid-array or mid-object due to token limits.
+ */
+function tryRepairTruncatedJSON(str: string): unknown | null {
+  // Find the last complete item boundary (end of an object/array element)
+  // by looking for the last '}' or ']' that could end a complete entry
+  let trimmed = str.trim();
+
+  // Try progressively trimming from the end to find a valid truncation point
+  // Look for the last complete array element or object
+  const stack: string[] = [];
+  let inString = false;
+  let escape = false;
+  let lastValidCut = -1;
+
+  for (let i = 0; i < trimmed.length; i++) {
+    const ch = trimmed[i];
+
+    if (escape) {
+      escape = false;
+      continue;
+    }
+
+    if (ch === "\\") {
+      escape = true;
+      continue;
+    }
+
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+
+    if (inString) continue;
+
+    if (ch === "{" || ch === "[") {
+      stack.push(ch);
+    } else if (ch === "}") {
+      if (stack.length > 0 && stack[stack.length - 1] === "{") {
+        stack.pop();
+        // After closing a top-level or near-top-level brace, this is a good cut point
+        if (stack.length <= 1) {
+          lastValidCut = i;
+        }
+      }
+    } else if (ch === "]") {
+      if (stack.length > 0 && stack[stack.length - 1] === "[") {
+        stack.pop();
+        if (stack.length <= 1) {
+          lastValidCut = i;
+        }
+      }
+    }
+  }
+
+  if (lastValidCut === -1) return null;
+
+  // Cut at the last valid position and close any remaining open structures
+  trimmed = trimmed.slice(0, lastValidCut + 1);
+
+  // Close any remaining open brackets/braces
+  const remaining: string[] = [];
+  inString = false;
+  escape = false;
+  for (let i = 0; i < trimmed.length; i++) {
+    const ch = trimmed[i];
+    if (escape) { escape = false; continue; }
+    if (ch === "\\") { escape = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === "[") remaining.push("[");
+    else if (ch === "{") remaining.push("{");
+    else if (ch === "]" && remaining.length > 0 && remaining[remaining.length - 1] === "[") remaining.pop();
+    else if (ch === "}" && remaining.length > 0 && remaining[remaining.length - 1] === "{") remaining.pop();
+  }
+
+  // Close in reverse order
+  for (let i = remaining.length - 1; i >= 0; i--) {
+    trimmed += remaining[i] === "[" ? "]" : "}";
+  }
+
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return null;
   }
 }
 

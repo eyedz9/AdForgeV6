@@ -73,6 +73,11 @@ export interface RawIntelligenceData {
   youtube: PlatformData;
   googleReviews: PlatformData;
   forums: PlatformData;
+  // Product research platforms
+  walmart: PlatformData;
+  tiktok: PlatformData;
+  instagram: PlatformData;
+  twitter: PlatformData;
   metadata: {
     collectedAt: string;
     totalSearches: number;
@@ -110,6 +115,10 @@ export function buildSearchQueries(context: CollectionContext): {
   googleReviews: string[];
   forums: string[];
   productResearch: string[];
+  walmart: string[];
+  tiktok: string[];
+  instagram: string[];
+  twitter: string[];
 } {
   const brandName = context.brand.name;
   const industry = context.brand.industry || "business";
@@ -239,6 +248,46 @@ export function buildSearchQueries(context: CollectionContext): {
       `why people buy "${productType}" motivations pain points`,
       `"${productType}" customer journey purchase funnel`,
     ] : [],
+
+    // Walmart - product listings, reviews, pricing
+    walmart: isProductResearch ? [
+      `site:walmart.com "${productType}" reviews`,
+      `site:walmart.com best seller ${productType}`,
+      `site:walmart.com "${productType}" price comparison`,
+    ] : [
+      `site:walmart.com "${brandName}" products`,
+      `site:walmart.com ${productType} reviews ratings`,
+    ],
+
+    // TikTok - product videos, trends, hashtags
+    tiktok: isProductResearch ? [
+      `site:tiktok.com "${productType}" review`,
+      `site:tiktok.com "${productType}" trending`,
+      `site:tiktok.com "${productType}" haul unboxing`,
+    ] : [
+      `site:tiktok.com "${brandName}" review`,
+      `site:tiktok.com ${productType} trending`,
+    ],
+
+    // Instagram - product mentions, influencer posts, shopping tags
+    instagram: isProductResearch ? [
+      `site:instagram.com "${productType}" review`,
+      `site:instagram.com "${productType}" recommendation`,
+      `site:instagram.com "${productType}" shopping`,
+    ] : [
+      `site:instagram.com "${brandName}"`,
+      `site:instagram.com ${productType} recommendation`,
+    ],
+
+    // Twitter/X - conversations, sentiment, complaints
+    twitter: isProductResearch ? [
+      `site:twitter.com OR site:x.com "${productType}" review`,
+      `site:twitter.com OR site:x.com "${productType}" complaint OR issue`,
+      `site:twitter.com OR site:x.com "${productType}" recommendation`,
+    ] : [
+      `site:twitter.com OR site:x.com "${brandName}" review`,
+      `site:twitter.com OR site:x.com "${brandName}" complaint OR feedback`,
+    ],
   };
 }
 
@@ -443,6 +492,10 @@ export async function collectIntelligence(
     youtube: emptyPlatformData(),
     googleReviews: emptyPlatformData(),
     forums: emptyPlatformData(),
+    walmart: emptyPlatformData(),
+    tiktok: emptyPlatformData(),
+    instagram: emptyPlatformData(),
+    twitter: emptyPlatformData(),
     metadata: {
       collectedAt: new Date().toISOString(),
       totalSearches: 0,
@@ -492,18 +545,39 @@ export async function collectIntelligence(
   totalSearches += queries.forums.length;
   platforms.push("forums");
 
-  // Phase 3: Audience research
-  onProgress?.("collecting", "Researching target audience...", 52);
+  // Phase 3: New platform searches (Walmart, TikTok, Instagram, Twitter)
+  onProgress?.("collecting", "Searching Walmart listings...", 50);
+  result.walmart.searches = await batchSearch(queries.walmart, "walmart");
+  totalSearches += queries.walmart.length;
+  platforms.push("walmart");
+
+  onProgress?.("collecting", "Searching TikTok content...", 53);
+  result.tiktok.searches = await batchSearch(queries.tiktok, "tiktok");
+  totalSearches += queries.tiktok.length;
+  platforms.push("tiktok");
+
+  onProgress?.("collecting", "Searching Instagram posts...", 56);
+  result.instagram.searches = await batchSearch(queries.instagram, "instagram");
+  totalSearches += queries.instagram.length;
+  platforms.push("instagram");
+
+  onProgress?.("collecting", "Searching Twitter/X conversations...", 59);
+  result.twitter.searches = await batchSearch(queries.twitter, "twitter");
+  totalSearches += queries.twitter.length;
+  platforms.push("twitter");
+
+  // Phase 4: Audience research
+  onProgress?.("collecting", "Researching target audience...", 62);
   result.audience.searches = await batchSearch(queries.audience, "audience");
   totalSearches += queries.audience.length;
 
-  // Phase 4: Scrape top URLs from each category
-  onProgress?.("scraping", "Scraping competitor websites...", 55);
+  // Phase 5: Scrape top URLs from each category
+  onProgress?.("scraping", "Scraping competitor websites...", 64);
   const competitorUrls = result.competitors.searches.slice(0, 3).map(r => r.url);
   result.competitors.scraped = await batchScrape(competitorUrls, "competitors", 3);
   totalScraped += result.competitors.scraped.length;
 
-  onProgress?.("scraping", "Scraping Reddit discussions...", 60);
+  onProgress?.("scraping", "Scraping Reddit discussions...", 67);
   const redditUrls = result.reddit.searches
     .filter(r => r.url.includes("reddit.com"))
     .slice(0, 5)
@@ -511,7 +585,7 @@ export async function collectIntelligence(
   result.reddit.scraped = await batchScrape(redditUrls, "reddit", 5);
   totalScraped += result.reddit.scraped.length;
 
-  onProgress?.("scraping", "Scraping Amazon reviews...", 68);
+  onProgress?.("scraping", "Scraping Amazon reviews...", 70);
   const amazonUrls = result.amazon.searches
     .filter(r => r.url.includes("amazon.com"))
     .slice(0, 3)
@@ -519,7 +593,7 @@ export async function collectIntelligence(
   result.amazon.scraped = await batchScrape(amazonUrls, "amazon", 3);
   totalScraped += result.amazon.scraped.length;
 
-  onProgress?.("scraping", "Scraping YouTube content...", 75);
+  onProgress?.("scraping", "Scraping YouTube content...", 73);
   const youtubeUrls = result.youtube.searches
     .filter(r => r.url.includes("youtube.com"))
     .slice(0, 3)
@@ -527,17 +601,49 @@ export async function collectIntelligence(
   result.youtube.scraped = await batchScrape(youtubeUrls, "youtube", 3);
   totalScraped += result.youtube.scraped.length;
 
-  onProgress?.("scraping", "Scraping forum discussions...", 82);
+  onProgress?.("scraping", "Scraping forum discussions...", 76);
   const forumUrls = result.forums.searches.slice(0, 4).map(r => r.url);
   result.forums.scraped = await batchScrape(forumUrls, "forums", 4);
   totalScraped += result.forums.scraped.length;
 
-  onProgress?.("scraping", "Scraping trend reports...", 88);
+  onProgress?.("scraping", "Scraping Walmart listings...", 79);
+  const walmartUrls = result.walmart.searches
+    .filter(r => r.url.includes("walmart.com"))
+    .slice(0, 3)
+    .map(r => r.url);
+  result.walmart.scraped = await batchScrape(walmartUrls, "walmart", 3);
+  totalScraped += result.walmart.scraped.length;
+
+  onProgress?.("scraping", "Scraping TikTok content...", 82);
+  const tiktokUrls = result.tiktok.searches
+    .filter(r => r.url.includes("tiktok.com"))
+    .slice(0, 3)
+    .map(r => r.url);
+  result.tiktok.scraped = await batchScrape(tiktokUrls, "tiktok", 3);
+  totalScraped += result.tiktok.scraped.length;
+
+  onProgress?.("scraping", "Scraping Instagram posts...", 85);
+  const instagramUrls = result.instagram.searches
+    .filter(r => r.url.includes("instagram.com"))
+    .slice(0, 3)
+    .map(r => r.url);
+  result.instagram.scraped = await batchScrape(instagramUrls, "instagram", 3);
+  totalScraped += result.instagram.scraped.length;
+
+  onProgress?.("scraping", "Scraping Twitter/X posts...", 88);
+  const twitterUrls = result.twitter.searches
+    .filter(r => r.url.includes("twitter.com") || r.url.includes("x.com"))
+    .slice(0, 4)
+    .map(r => r.url);
+  result.twitter.scraped = await batchScrape(twitterUrls, "twitter", 4);
+  totalScraped += result.twitter.scraped.length;
+
+  onProgress?.("scraping", "Scraping trend reports...", 91);
   const trendUrls = result.trends.searches.slice(0, 2).map(r => r.url);
   result.trends.scraped = await batchScrape(trendUrls, "trends", 2);
   totalScraped += result.trends.scraped.length;
 
-  onProgress?.("scraping", "Scraping news articles...", 94);
+  onProgress?.("scraping", "Scraping news articles...", 95);
   const newsUrls = result.news.searches.slice(0, 2).map(r => r.url);
   result.news.scraped = await batchScrape(newsUrls, "news", 2);
   totalScraped += result.news.scraped.length;
@@ -605,6 +711,7 @@ export function getPlatformFromUrl(url: string): string {
     const hostname = new URL(url).hostname.toLowerCase();
     if (hostname.includes("reddit")) return "reddit";
     if (hostname.includes("amazon")) return "amazon";
+    if (hostname.includes("walmart")) return "walmart";
     if (hostname.includes("youtube")) return "youtube";
     if (hostname.includes("google.com/maps")) return "google_reviews";
     if (hostname.includes("yelp")) return "yelp";

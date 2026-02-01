@@ -35,7 +35,7 @@ const OPENROUTER_MODEL = "anthropic/claude-haiku-4.5";
 // Generation parameters as specified in PRD
 const GENERATION_CONFIG = {
   temperature: 0.7,
-  max_tokens: 8000,
+  max_tokens: 10000,
 } as const;
 
 /**
@@ -288,8 +288,89 @@ Generate a JSON object with the following structure. All fields marked as requir
     "advertisingAttitude": "string (optional) - attitude toward marketing",
     "socialConsciousness": "string (optional)",
     "trustLevel": "string (optional)"
+  },
+
+  "lifeStage": "string (required) - One of: college_student, young_professional, new_parent, established_family, empty_nester, retiree, career_changer, early_career",
+
+  "mediaProfile": {
+    "platformRankings": [
+      {
+        "platform": "string - platform name (e.g., TikTok, Instagram, Facebook, YouTube, LinkedIn, Twitter/X, Pinterest, Snapchat, Reddit)",
+        "affinityIndex": "number - baseline 100, >100 means over-index, <100 means under-index",
+        "confidence": "number 0-1 - how confident in this ranking",
+        "reach": "string - high, medium, or low",
+        "engagement": "string - high, medium, or low",
+        "reasoning": "string - why this persona has this affinity"
+      }
+    ],
+    "daypartRecommendations": [
+      {
+        "daypart": "string - early_morning, morning_commute, midday, afternoon, evening_prime, or late_night",
+        "timeRange": "string - e.g., '7-9 AM'",
+        "affinityIndex": "number - same baseline-100 scale",
+        "bestPlatforms": ["string array - top platforms for this daypart"],
+        "reasoning": "string"
+      }
+    ],
+    "genreAlignment": [
+      {
+        "genre": "string - e.g., Comedy/Humor, News/Current Events, Health & Wellness, Tech, Sports, etc.",
+        "affinityIndex": "number",
+        "relevance": "string - high, medium, or low",
+        "platforms": ["string array"],
+        "reasoning": "string"
+      }
+    ],
+    "contentFormatRankings": [
+      {
+        "format": "string - short_video, long_video, carousel, stories, image, text, audio, or live_stream",
+        "affinityIndex": "number",
+        "topPlatforms": ["string array"],
+        "reasoning": "string"
+      }
+    ]
+  },
+
+  "creativeMessaging": {
+    "languageProfile": {
+      "tone": "string - e.g., casual_authentic, professional_aspirational, playful_bold",
+      "vocabulary": ["string array - resonant keywords/phrases"],
+      "avoidWords": ["string array - words to avoid"],
+      "sentenceStyle": "string - short_punchy, narrative, or question_based",
+      "readingLevel": "string - casual, moderate, or sophisticated"
+    },
+    "messagingThemes": [
+      {
+        "theme": "string - theme name",
+        "relevance": "string - high, medium, or low",
+        "messagingAngle": "string - the creative angle",
+        "sampleHeadlines": ["string array - 2-3 sample headlines"]
+      }
+    ],
+    "proofPoints": [
+      {
+        "type": "string - social_proof, expert_authority, data_driven, testimonial, or comparison",
+        "description": "string",
+        "effectiveness": "string - high, medium, or low",
+        "examples": ["string array"]
+      }
+    ],
+    "callToActionStyle": {
+      "style": "string - urgency, aspiration, community, or value",
+      "examples": ["string array - 2-3 CTA examples"]
+    },
+    "visualPreferences": {
+      "style": "string - authentic_ugc, polished_editorial, or bold_graphic",
+      "colorSensitivity": ["string array - color preferences"],
+      "imageryTypes": ["string array - lifestyle, product_focused, real_people, or abstract"]
+    }
   }
 }
+
+IMPORTANT NOTES FOR NEW FIELDS:
+- Generate 4-6 platform rankings, 4-6 daypart recommendations, 4-6 genre alignments, and 4-6 content format rankings with realistic affinity index scores
+- Generate 3-5 messaging themes with sample headlines, 2-4 proof points
+- All data must be grounded in the persona's demographics, psychographics, and lifestyle
 
 IMPORTANT: Return ONLY the JSON object, no additional text or markdown formatting.`;
 
@@ -756,6 +837,7 @@ function parsePersonaResponse(content: string): PersonaInput {
       householdSize: parsed.demographics.householdSize,
       income: parsed.demographics.income,
       ethnicity: parsed.demographics.ethnicity,
+      lifeStage: parsed.lifeStage || parsed.demographics?.lifeStage,
     },
 
     professional: {
@@ -824,6 +906,25 @@ function parsePersonaResponse(content: string): PersonaInput {
           advertisingAttitude: parsed.beliefsAttitudes.advertisingAttitude,
           socialConsciousness: parsed.beliefsAttitudes.socialConsciousness,
           trustLevel: parsed.beliefsAttitudes.trustLevel,
+        }
+      : undefined,
+
+    mediaProfile: parsed.mediaProfile
+      ? {
+          platformRankings: parsed.mediaProfile.platformRankings || [],
+          daypartRecommendations: parsed.mediaProfile.daypartRecommendations || [],
+          genreAlignment: parsed.mediaProfile.genreAlignment || [],
+          contentFormatRankings: parsed.mediaProfile.contentFormatRankings || [],
+        }
+      : undefined,
+
+    creativeMessaging: parsed.creativeMessaging
+      ? {
+          languageProfile: parsed.creativeMessaging.languageProfile || { tone: "", vocabulary: [], avoidWords: [], sentenceStyle: "", readingLevel: "" },
+          messagingThemes: parsed.creativeMessaging.messagingThemes || [],
+          proofPoints: parsed.creativeMessaging.proofPoints || [],
+          callToActionStyle: parsed.creativeMessaging.callToActionStyle || { style: "", examples: [] },
+          visualPreferences: parsed.creativeMessaging.visualPreferences || { style: "", colorSensitivity: [], imageryTypes: [] },
         }
       : undefined,
 

@@ -202,6 +202,11 @@ export type Database = {
           synthesized_trends: Json;
           synthesized_audience: Json;
           synthesized_competitors: Json;
+          sentiment_analysis: Json;
+          topic_clusters: Json;
+          purchase_intent: Json;
+          competitive_positioning: Json;
+          media_affinity: Json;
           created_at: string;
           updated_at: string;
         };
@@ -227,6 +232,11 @@ export type Database = {
           synthesized_trends?: Json;
           synthesized_audience?: Json;
           synthesized_competitors?: Json;
+          sentiment_analysis?: Json;
+          topic_clusters?: Json;
+          purchase_intent?: Json;
+          competitive_positioning?: Json;
+          media_affinity?: Json;
           created_at?: string;
           updated_at?: string;
         };
@@ -252,6 +262,11 @@ export type Database = {
           synthesized_trends?: Json;
           synthesized_audience?: Json;
           synthesized_competitors?: Json;
+          sentiment_analysis?: Json;
+          topic_clusters?: Json;
+          purchase_intent?: Json;
+          competitive_positioning?: Json;
+          media_affinity?: Json;
           created_at?: string;
           updated_at?: string;
         };
@@ -289,6 +304,8 @@ export type Database = {
           media_tech: Json;
           buying_behavior: Json;
           beliefs_attitudes: Json | null;
+          media_profile: Json | null;
+          creative_messaging: Json | null;
           generation_model: string;
           generation_params: Json;
           validation_status: string;
@@ -316,6 +333,8 @@ export type Database = {
           media_tech?: Json;
           buying_behavior?: Json;
           beliefs_attitudes?: Json | null;
+          media_profile?: Json | null;
+          creative_messaging?: Json | null;
           generation_model?: string;
           generation_params?: Json;
           validation_status?: string;
@@ -343,6 +362,8 @@ export type Database = {
           media_tech?: Json;
           buying_behavior?: Json;
           beliefs_attitudes?: Json | null;
+          media_profile?: Json | null;
+          creative_messaging?: Json | null;
           generation_model?: string;
           generation_params?: Json;
           validation_status?: string;

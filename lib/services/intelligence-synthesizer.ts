@@ -10,6 +10,7 @@ import { sendMessageForJSON } from "@/lib/api/anthropic";
 import type { RawIntelligenceData } from "./intelligence-collector";
 import type { Brand, Product } from "@/lib/supabase/database.types";
 import type { AttributedSource } from "@/lib/api/brightdata";
+import { synthesizeMediaAffinity, type MediaAffinityReport } from "./media-affinity-engine";
 
 /**
  * Synthesized competitor data
@@ -64,6 +65,13 @@ export interface SynthesizedAudienceSegment {
     income: string;
     location: string[];
     education: string;
+    confidenceScores?: {
+      age: number;
+      gender: number;
+      income: number;
+      location: number;
+      education: number;
+    };
   };
   psychographics: {
     values: string[];
@@ -76,9 +84,19 @@ export interface SynthesizedAudienceSegment {
     preferredChannels: string[];
     researchBehavior: string;
   };
+  lifeStageSignals?: {
+    lifeStage: string;
+    confidence: number;
+    indicators: string[];
+  }[];
+  culturalAffinityMarkers?: {
+    marker: string;
+    strength: "strong" | "moderate" | "weak";
+    evidence: string[];
+  }[];
   confidence: number;
   source: AttributedSource;
-  sourceCitations?: string[]; // URLs that support this segment
+  sourceCitations?: string[];
 }
 
 /**
@@ -146,6 +164,178 @@ export interface ExecutiveSummary {
 }
 
 /**
+ * Sentiment analysis with per-platform breakdown and topic drivers
+ */
+export interface SentimentAnalysis {
+  overall: {
+    score: number;
+    label: string;
+    intensity: "strong" | "moderate" | "mild";
+  };
+  byPlatform: {
+    platform: string;
+    score: number; // -1 to 1
+    label: "very_positive" | "positive" | "neutral" | "negative" | "very_negative";
+    intensity: "strong" | "moderate" | "mild";
+    sampleSize: number;
+    topPositiveTopics: string[];
+    topNegativeTopics: string[];
+    trendDirection: "improving" | "stable" | "declining";
+  }[];
+  topicSentiment: {
+    topic: string;
+    sentiment: number; // -1 to 1
+    mentions: number;
+    platforms: string[];
+  }[];
+  aspectSentiment?: {
+    aspect: string;
+    sentiment: number; // -1 to 1
+    mentions: number;
+    topPhrases: string[];
+    platforms: string[];
+  }[];
+  emotions?: {
+    emotion: string;
+    intensity: number; // 0 to 1
+    mentions: number;
+    triggers: string[];
+    platforms: string[];
+  }[];
+}
+
+/**
+ * Topic clustering with recurring UGC themes across platforms
+ */
+export interface TopicCluster {
+  clusters: {
+    name: string;
+    description: string;
+    themes: string[];
+    platformDistribution: Record<string, number>;
+    sentimentAverage: number;
+    representativeQuotes: string[];
+    relevanceScore: number; // 0-1
+  }[];
+  emergingTopics: string[];
+  decliningTopics: string[];
+  painPoints?: {
+    painPoint: string;
+    severity: "critical" | "moderate" | "minor";
+    frequency: number;
+    affectedSegments: string[];
+    suggestedSolution: string;
+    platforms: string[];
+  }[];
+  benefits?: {
+    benefit: string;
+    category: "functional" | "emotional" | "social" | "financial";
+    frequency: number;
+    sentiment: number;
+    platforms: string[];
+  }[];
+  featureFeedback?: {
+    feature: string;
+    overallSentiment: number;
+    positiveCount: number;
+    negativeCount: number;
+    topPraise: string[];
+    topComplaints: string[];
+    improvementSuggestions: string[];
+  }[];
+}
+
+/**
+ * Purchase intent signals with funnel stage indicators and comparison behavior
+ */
+export interface PurchaseIntentAnalysis {
+  signals: {
+    signal: string;
+    description: string;
+    stage: "awareness" | "consideration" | "decision" | "post_purchase";
+    strength: "strong" | "moderate" | "weak";
+    platforms: string[];
+    examples: string[];
+  }[];
+  comparisonBehavior: {
+    topComparedProducts: string[];
+    comparisonFactors: string[];
+    decisionTimeline: string;
+  };
+  barriers: {
+    barrier: string;
+    frequency: "common" | "occasional" | "rare";
+    suggestedResponse: string;
+  }[];
+  conversionDrivers: string[];
+  brandLoyaltySignals?: {
+    signal: string;
+    type: "repeat_purchase" | "brand_advocacy" | "community_engagement" | "emotional_attachment";
+    strength: "strong" | "moderate" | "weak";
+    platforms: string[];
+    examples: string[];
+  }[];
+  switchingIntentSignals?: {
+    signal: string;
+    fromBrand?: string;
+    toBrand?: string;
+    reason: string;
+    frequency: "common" | "occasional" | "rare";
+    platforms: string[];
+  }[];
+  feedbackClassification?: {
+    complaints: {
+      topic: string;
+      severity: "high" | "medium" | "low";
+      frequency: number;
+      platforms: string[];
+      representativeQuote: string;
+    }[];
+    recommendations: {
+      topic: string;
+      enthusiasm: "high" | "medium" | "low";
+      frequency: number;
+      platforms: string[];
+      representativeQuote: string;
+    }[];
+    overallRatio: {
+      complaintsPercent: number;
+      recommendationsPercent: number;
+      neutralPercent: number;
+    };
+  };
+}
+
+/**
+ * Competitive positioning with price, feature, and review comparison
+ */
+export interface CompetitivePositioning {
+  priceComparison: {
+    competitor: string;
+    price: string;
+    pricePosition: "cheaper" | "similar" | "premium";
+    valuePerception: string;
+  }[];
+  featureComparison: {
+    feature: string;
+    ourProduct: string;
+    competitors: Record<string, string>;
+  }[];
+  reviewComparison: {
+    competitor: string;
+    avgRating: number | null;
+    reviewVolume: string;
+    topPraise: string[];
+    topComplaints: string[];
+  }[];
+  marketPosition: {
+    quadrant: string;
+    differentiators: string[];
+    vulnerabilities: string[];
+  };
+}
+
+/**
  * Complete synthesized report
  */
 export interface SynthesizedReport {
@@ -156,6 +346,11 @@ export interface SynthesizedReport {
   personaSuggestions: PersonaSuggestion[];
   platformInsights: PlatformInsight[];
   contentRecommendations: ContentRecommendation[];
+  sentimentAnalysis: SentimentAnalysis;
+  topicClusters: TopicCluster;
+  purchaseIntentAnalysis: PurchaseIntentAnalysis;
+  competitivePositioning: CompetitivePositioning;
+  mediaAffinity: MediaAffinityReport;
 }
 
 /**
@@ -212,6 +407,12 @@ export async function synthesizeCompetitors(
     .map((s) => `### Forum: ${s.url}\n${truncateContent(s.content, 400)}`)
     .join("\n\n") || "";
 
+  // Include Walmart data for competitor pricing and product comparisons
+  const walmartMentions = rawData.walmart?.scraped
+    .slice(0, 2)
+    .map((s) => `### Walmart: ${s.url}\n${truncateContent(s.content, 400)}`)
+    .join("\n\n") || "";
+
   const prompt = `Analyze the following REAL search results, scraped content, and user discussions from BrightData to identify competitors for "${context.brand.name}" in the ${context.brand.industry || "business"} industry.
 
 ## Search Results (from BrightData SERP):
@@ -225,6 +426,9 @@ ${redditMentions}
 
 ## Forum Discussions (competitor comparisons):
 ${forumMentions}
+
+## Walmart Listings (competitor products & pricing):
+${walmartMentions}
 
 CRITICAL INSTRUCTIONS:
 1. ONLY identify competitors that appear in the provided data above
@@ -376,6 +580,27 @@ export async function synthesizeAudience(
     .map((s) => `### Forum Source: ${s.url}\n${truncateContent(s.content, 400)}`)
     .join("\n\n") || "";
 
+  // New platform data for richer audience insights
+  const tiktokData = rawData.tiktok?.scraped
+    .slice(0, 2)
+    .map((s) => `### TikTok Source: ${s.url}\n${truncateContent(s.content, 400)}`)
+    .join("\n\n") || "";
+
+  const instagramData = rawData.instagram?.scraped
+    .slice(0, 2)
+    .map((s) => `### Instagram Source: ${s.url}\n${truncateContent(s.content, 400)}`)
+    .join("\n\n") || "";
+
+  const twitterData = rawData.twitter?.scraped
+    .slice(0, 2)
+    .map((s) => `### Twitter/X Source: ${s.url}\n${truncateContent(s.content, 400)}`)
+    .join("\n\n") || "";
+
+  const walmartData = rawData.walmart?.scraped
+    .slice(0, 2)
+    .map((s) => `### Walmart Source: ${s.url}\n${truncateContent(s.content, 400)}`)
+    .join("\n\n") || "";
+
   // Product-specific context for better targeting
   const productContext = context.product ? `
 ## PRODUCT RESEARCH CONTEXT:
@@ -411,6 +636,18 @@ ${amazonData}
 ## Forum Discussions:
 ${forumData}
 
+## TikTok Content:
+${tiktokData}
+
+## Instagram Content:
+${instagramData}
+
+## Twitter/X Conversations:
+${twitterData}
+
+## Walmart Customer Data:
+${walmartData}
+
 CRITICAL INSTRUCTIONS:
 1. ALL insights MUST be derived from the provided web research data above
 2. Include specific citations to source URLs where you found each insight
@@ -421,9 +658,17 @@ Based on the REAL user-generated content and research above, identify 3-5 distin
 - name: Segment name (e.g., "Young Professionals", "Budget-Conscious Families")
 - description: Detailed description WITH citations to source URLs
 - size: "large", "medium", "small", or "niche"
-- demographics: Object with ageRange, gender, income, location (array), education - ONLY include what's supported by the data
+- demographics: Object with ageRange, gender, income, location (array), education - ONLY include what's supported by the data. Also include a "confidenceScores" object with confidence (0-1) for each demographic field: { age, gender, income, location, education }
 - psychographics: Object with values, interests, painPoints, motivations (all arrays) - cite sources
 - behaviors: Object with purchaseDrivers, preferredChannels (arrays), researchBehavior (string)
+- lifeStageSignals: Array of life stage indicators, each with:
+  - lifeStage: e.g., "parent", "student", "young_professional", "mid_career", "retiree"
+  - confidence: 0-1
+  - indicators: Array of data points that suggest this life stage
+- culturalAffinityMarkers: Array of cultural/lifestyle markers, each with:
+  - marker: e.g., "health-conscious", "eco-friendly", "tech-early-adopter", "budget-optimizer"
+  - strength: "strong", "moderate", or "weak"
+  - evidence: Array of supporting evidence from the data
 - confidence: Confidence score 0-1 based on how much data supports this segment
 - sourceCitations: Array of URLs that support this segment's existence
 
@@ -586,6 +831,50 @@ export async function analyzePlatforms(
     .map((s) => `### ${s.url}\n${truncateContent(s.content, 400)}`)
     .join("\n\n") || "";
 
+  // Walmart data
+  const walmartSearches = rawData.walmart?.searches
+    .slice(0, 6)
+    .map((s) => `- ${s.title}: ${s.description || ""}`)
+    .join("\n") || "";
+
+  const walmartScraped = rawData.walmart?.scraped
+    .slice(0, 2)
+    .map((s) => `### ${s.url}\n${truncateContent(s.content, 400)}`)
+    .join("\n\n") || "";
+
+  // TikTok data
+  const tiktokSearches = rawData.tiktok?.searches
+    .slice(0, 6)
+    .map((s) => `- ${s.title}: ${s.description || ""}`)
+    .join("\n") || "";
+
+  const tiktokScraped = rawData.tiktok?.scraped
+    .slice(0, 2)
+    .map((s) => `### ${s.url}\n${truncateContent(s.content, 400)}`)
+    .join("\n\n") || "";
+
+  // Instagram data
+  const instagramSearches = rawData.instagram?.searches
+    .slice(0, 6)
+    .map((s) => `- ${s.title}: ${s.description || ""}`)
+    .join("\n") || "";
+
+  const instagramScraped = rawData.instagram?.scraped
+    .slice(0, 2)
+    .map((s) => `### ${s.url}\n${truncateContent(s.content, 400)}`)
+    .join("\n\n") || "";
+
+  // Twitter/X data
+  const twitterSearches = rawData.twitter?.searches
+    .slice(0, 6)
+    .map((s) => `- ${s.title}: ${s.description || ""}`)
+    .join("\n") || "";
+
+  const twitterScraped = rawData.twitter?.scraped
+    .slice(0, 2)
+    .map((s) => `### ${s.url}\n${truncateContent(s.content, 400)}`)
+    .join("\n\n") || "";
+
   const prompt = `Analyze discussions and user-generated content about "${context.brand.name}" or the ${context.brand.industry} industry across multiple platforms.
 
 ## General Social Search Results:
@@ -621,7 +910,31 @@ ${forumsSearches}
 ## Forum Discussions:
 ${forumsScraped}
 
-Provide platform-specific insights for each platform where you found relevant data (Reddit, Amazon, YouTube, Google Reviews, Trustpilot, Quora, Twitter/X, Facebook, LinkedIn, etc.). For each platform:
+## Walmart Search Results:
+${walmartSearches}
+
+## Walmart Product Listings & Reviews:
+${walmartScraped}
+
+## TikTok Search Results:
+${tiktokSearches}
+
+## TikTok Content:
+${tiktokScraped}
+
+## Instagram Search Results:
+${instagramSearches}
+
+## Instagram Content:
+${instagramScraped}
+
+## Twitter/X Search Results:
+${twitterSearches}
+
+## Twitter/X Conversations:
+${twitterScraped}
+
+Provide platform-specific insights for each platform where you found relevant data (Reddit, Amazon, YouTube, Google Reviews, Forums, Walmart, TikTok, Instagram, Twitter/X, etc.). For each platform:
 - platform: Platform name
 - sentiment: "positive", "neutral", "negative", or "mixed"
 - keyTopics: Array of key discussion topics
@@ -648,6 +961,416 @@ Return as a JSON array of platform insight objects.`;
 }
 
 /**
+ * Synthesize deep sentiment analysis from all platform data
+ */
+export async function synthesizeSentiment(
+  rawData: RawIntelligenceData,
+  context: { brand: Brand; product?: Product | null }
+): Promise<SentimentAnalysis> {
+  // Collect scraped content from ALL platforms, truncated to 600 chars, limited to 2 items each
+  const platformSections = [
+    { key: "reddit", data: rawData.reddit },
+    { key: "amazon", data: rawData.amazon },
+    { key: "youtube", data: rawData.youtube },
+    { key: "forums", data: rawData.forums },
+    { key: "walmart", data: rawData.walmart },
+    { key: "tiktok", data: rawData.tiktok },
+    { key: "instagram", data: rawData.instagram },
+    { key: "twitter", data: rawData.twitter },
+  ]
+    .map(({ key, data }) => {
+      const scraped = data?.scraped
+        .slice(0, 2)
+        .map((s) => `### ${s.url}\n${truncateContent(s.content, 600)}`)
+        .join("\n\n") || "";
+      return scraped ? `## ${key.charAt(0).toUpperCase() + key.slice(1)} Content:\n${scraped}` : "";
+    })
+    .filter(Boolean)
+    .join("\n\n");
+
+  const productContext = context.product
+    ? `Product: ${context.product.name} - ${context.product.short_description || "N/A"}`
+    : "";
+
+  const prompt = `Analyze the sentiment across all platforms for "${context.brand.name}" in the ${context.brand.industry || "business"} industry.
+${productContext}
+
+${platformSections}
+
+Provide a deep sentiment analysis with:
+
+1. **overall**: Overall sentiment across all platforms
+   - score: number (-1 to 1, where -1 is very negative, 0 is neutral, 1 is very positive)
+   - label: text description of overall sentiment
+   - intensity: "strong", "moderate", or "mild"
+
+2. **byPlatform**: Per-platform sentiment breakdown (only platforms with data)
+   - platform: platform name
+   - score: -1 to 1
+   - label: "very_positive", "positive", "neutral", "negative", or "very_negative"
+   - intensity: "strong", "moderate", or "mild"
+   - sampleSize: estimated number of data points analyzed
+   - topPositiveTopics: array of top positive discussion topics
+   - topNegativeTopics: array of top negative discussion topics
+   - trendDirection: "improving", "stable", or "declining"
+
+3. **topicSentiment**: Topic-level sentiment analysis
+   - topic: topic name
+   - sentiment: -1 to 1
+   - mentions: estimated mention count
+   - platforms: which platforms discuss this topic
+
+4. **aspectSentiment**: Aspect-based sentiment (sentiment toward specific product/brand attributes)
+   - aspect: attribute name (e.g., "price", "quality", "taste", "convenience", "packaging", "customer_service")
+   - sentiment: -1 to 1
+   - mentions: estimated mention count for this aspect
+   - topPhrases: array of 2-3 representative phrases/expressions about this aspect
+   - platforms: which platforms mention this aspect
+
+5. **emotions**: Emotion detection across all content
+   - emotion: emotion name (e.g., "joy", "frustration", "surprise", "trust", "anticipation", "anger", "fear", "sadness")
+   - intensity: 0 to 1 (how strongly the emotion is expressed)
+   - mentions: estimated mention count
+   - triggers: array of 2-3 things that trigger this emotion
+   - platforms: which platforms show this emotion
+
+Return as a JSON object with all five keys.`;
+
+  try {
+    const result = await sendMessageForJSON<SentimentAnalysis>(prompt, {
+      systemPrompt: "You are an expert sentiment analyst specializing in consumer and product sentiment across digital platforms. Analyze user-generated content to extract nuanced sentiment patterns, topic drivers, and trend directions. Be data-driven and precise.",
+    });
+
+    return {
+      overall: result?.overall || { score: 0, label: "neutral", intensity: "mild" },
+      byPlatform: Array.isArray(result?.byPlatform) ? result.byPlatform : [],
+      topicSentiment: Array.isArray(result?.topicSentiment) ? result.topicSentiment : [],
+      aspectSentiment: Array.isArray(result?.aspectSentiment) ? result.aspectSentiment : [],
+      emotions: Array.isArray(result?.emotions) ? result.emotions : [],
+    };
+  } catch (error) {
+    console.error("Error synthesizing sentiment:", error);
+    return {
+      overall: { score: 0, label: "neutral", intensity: "mild" },
+      byPlatform: [],
+      topicSentiment: [],
+      aspectSentiment: [],
+      emotions: [],
+    };
+  }
+}
+
+/**
+ * Synthesize topic clusters from UGC across all platforms
+ */
+export async function synthesizeTopicClusters(
+  rawData: RawIntelligenceData,
+  context: { brand: Brand; product?: Product | null }
+): Promise<TopicCluster> {
+  // Collect scraped content from ALL platforms, truncated to 600 chars, limited to 2 items each
+  const platformSections = [
+    { key: "reddit", data: rawData.reddit },
+    { key: "amazon", data: rawData.amazon },
+    { key: "youtube", data: rawData.youtube },
+    { key: "forums", data: rawData.forums },
+    { key: "walmart", data: rawData.walmart },
+    { key: "tiktok", data: rawData.tiktok },
+    { key: "instagram", data: rawData.instagram },
+    { key: "twitter", data: rawData.twitter },
+  ]
+    .map(({ key, data }) => {
+      const scraped = data?.scraped
+        .slice(0, 2)
+        .map((s) => `### ${s.url}\n${truncateContent(s.content, 600)}`)
+        .join("\n\n") || "";
+      return scraped ? `## ${key.charAt(0).toUpperCase() + key.slice(1)} Content:\n${scraped}` : "";
+    })
+    .filter(Boolean)
+    .join("\n\n");
+
+  const productContext = context.product
+    ? `Product: ${context.product.name} - ${context.product.short_description || "N/A"}`
+    : "";
+
+  const prompt = `Analyze user-generated content across all platforms for "${context.brand.name}" in the ${context.brand.industry || "business"} industry to identify recurring discussion themes and topic clusters.
+${productContext}
+
+${platformSections}
+
+Identify recurring themes and cluster them. Return a JSON object with:
+
+1. **clusters**: Array of topic clusters, each with:
+   - name: Cluster name (e.g., "Product Quality Concerns", "Value for Money")
+   - description: What this cluster is about
+   - themes: Array of specific themes within this cluster
+   - platformDistribution: Object mapping platform name to mention count (e.g., {"reddit": 5, "amazon": 3})
+   - sentimentAverage: Average sentiment for this cluster (-1 to 1)
+   - representativeQuotes: Array of 1-3 representative quotes or paraphrased user statements from the data
+   - relevanceScore: 0-1 score indicating how relevant this cluster is to the brand/product
+
+2. **emergingTopics**: Array of topic names that appear to be newly trending or gaining traction
+
+3. **decliningTopics**: Array of topic names that appear to be losing interest or relevance
+
+4. **painPoints**: Array of customer pain points identified from UGC, each with:
+   - painPoint: Description of the pain point
+   - severity: "critical", "moderate", or "minor"
+   - frequency: Estimated mention count
+   - affectedSegments: Array of customer segments affected (e.g., "budget shoppers", "power users")
+   - suggestedSolution: How the brand could address this pain point
+   - platforms: Which platforms mention this pain point
+
+5. **benefits**: Array of perceived product/brand benefits, each with:
+   - benefit: Description of the benefit
+   - category: "functional", "emotional", "social", or "financial"
+   - frequency: Estimated mention count
+   - sentiment: Average sentiment score (-1 to 1) when this benefit is discussed
+   - platforms: Which platforms mention this benefit
+
+6. **featureFeedback**: Array of feature-level feedback, each with:
+   - feature: Feature name
+   - overallSentiment: -1 to 1
+   - positiveCount: Estimated positive mention count
+   - negativeCount: Estimated negative mention count
+   - topPraise: Array of 2-3 things users praise about this feature
+   - topComplaints: Array of 2-3 things users complain about
+   - improvementSuggestions: Array of 2-3 improvement suggestions from users
+
+Return 5-10 clusters sorted by relevance score descending, plus 3-6 pain points, 3-6 benefits, and 3-6 feature feedback items.`;
+
+  try {
+    const result = await sendMessageForJSON<TopicCluster>(prompt, {
+      systemPrompt: "You are an expert UGC analyst specializing in topic modeling and thematic analysis across digital platforms. Identify recurring discussion themes, cluster related topics, and detect emerging/declining trends from user-generated content. Be data-driven and precise.",
+    });
+
+    return {
+      clusters: Array.isArray(result?.clusters) ? result.clusters : [],
+      emergingTopics: Array.isArray(result?.emergingTopics) ? result.emergingTopics : [],
+      decliningTopics: Array.isArray(result?.decliningTopics) ? result.decliningTopics : [],
+      painPoints: Array.isArray(result?.painPoints) ? result.painPoints : [],
+      benefits: Array.isArray(result?.benefits) ? result.benefits : [],
+      featureFeedback: Array.isArray(result?.featureFeedback) ? result.featureFeedback : [],
+    };
+  } catch (error) {
+    console.error("Error synthesizing topic clusters:", error);
+    return {
+      clusters: [],
+      emergingTopics: [],
+      decliningTopics: [],
+      painPoints: [],
+      benefits: [],
+      featureFeedback: [],
+    };
+  }
+}
+
+/**
+ * Synthesize purchase intent signals from UGC data
+ */
+export async function synthesizePurchaseIntent(
+  rawData: RawIntelligenceData,
+  context: { brand: Brand; product?: Product | null }
+): Promise<PurchaseIntentAnalysis> {
+  // Focus on platforms where purchase intent signals are strongest
+  const platformSections = [
+    { key: "reddit", data: rawData.reddit },
+    { key: "amazon", data: rawData.amazon },
+    { key: "forums", data: rawData.forums },
+    { key: "walmart", data: rawData.walmart },
+    { key: "twitter", data: rawData.twitter },
+  ]
+    .map(({ key, data }) => {
+      const scraped = data?.scraped
+        .slice(0, 2)
+        .map((s) => `### ${s.url}\n${truncateContent(s.content, 600)}`)
+        .join("\n\n") || "";
+      return scraped ? `## ${key.charAt(0).toUpperCase() + key.slice(1)} Content:\n${scraped}` : "";
+    })
+    .filter(Boolean)
+    .join("\n\n");
+
+  const productContext = context.product
+    ? `Product: ${context.product.name} - ${context.product.short_description || "N/A"} (Price: ${context.product.price ? `$${context.product.price}` : "N/A"})`
+    : "";
+
+  const prompt = `Analyze user-generated content to identify purchase intent signals for "${context.brand.name}" in the ${context.brand.industry || "business"} industry.
+${productContext}
+
+${platformSections}
+
+Analyze the content above for buying signals, consideration-stage indicators, and comparison shopping behavior. Return a JSON object with:
+
+1. **signals**: Array of purchase intent signals, each with:
+   - signal: Signal name (e.g., "Price comparison requests", "Feature inquiries")
+   - description: What this signal indicates about buyer intent
+   - stage: "awareness", "consideration", "decision", or "post_purchase"
+   - strength: "strong", "moderate", or "weak"
+   - platforms: Which platforms show this signal
+   - examples: 1-3 example phrases or paraphrased user statements from the data
+
+2. **comparisonBehavior**: Object with:
+   - topComparedProducts: Array of products/brands being compared against
+   - comparisonFactors: Array of factors users compare on (e.g., "price", "durability", "features")
+   - decisionTimeline: Text describing typical decision-making timeline (e.g., "1-2 weeks of research")
+
+3. **barriers**: Array of purchase barriers, each with:
+   - barrier: Barrier name (e.g., "High price perception", "Quality uncertainty")
+   - frequency: "common", "occasional", or "rare"
+   - suggestedResponse: How to address this barrier in marketing
+
+4. **conversionDrivers**: Array of strings describing what drives conversions (e.g., "Free trial availability", "Social proof from reviews")
+
+5. **brandLoyaltySignals**: Array of brand loyalty indicators, each with:
+   - signal: Description of the loyalty signal
+   - type: "repeat_purchase", "brand_advocacy", "community_engagement", or "emotional_attachment"
+   - strength: "strong", "moderate", or "weak"
+   - platforms: Which platforms show this signal
+   - examples: 1-2 example phrases from users
+
+6. **switchingIntentSignals**: Array of brand switching indicators, each with:
+   - signal: Description of the switching signal
+   - fromBrand: Brand being switched from (if identifiable)
+   - toBrand: Brand being switched to (if identifiable)
+   - reason: Why users are considering switching
+   - frequency: "common", "occasional", or "rare"
+   - platforms: Which platforms show this signal
+
+7. **feedbackClassification**: Object classifying user feedback into complaints vs recommendations:
+   - complaints: Array of complaint topics, each with: topic, severity ("high"/"medium"/"low"), frequency (number), platforms, representativeQuote
+   - recommendations: Array of recommendation topics, each with: topic, enthusiasm ("high"/"medium"/"low"), frequency (number), platforms, representativeQuote
+   - overallRatio: Object with complaintsPercent, recommendationsPercent, neutralPercent (should sum to 100)
+
+Return 5-10 signals, 3-5 barriers, 3-5 conversion drivers, 3-5 loyalty signals, 2-4 switching signals, and 3-5 items each for complaints and recommendations.`;
+
+  try {
+    const result = await sendMessageForJSON<PurchaseIntentAnalysis>(prompt, {
+      systemPrompt: "You are an expert consumer behavior analyst specializing in purchase intent modeling and conversion funnel analysis. Analyze user-generated content to identify buying signals, comparison behavior, barriers to purchase, and conversion drivers. Be data-driven and precise.",
+    });
+
+    return {
+      signals: Array.isArray(result?.signals) ? result.signals : [],
+      comparisonBehavior: {
+        topComparedProducts: Array.isArray(result?.comparisonBehavior?.topComparedProducts) ? result.comparisonBehavior.topComparedProducts : [],
+        comparisonFactors: Array.isArray(result?.comparisonBehavior?.comparisonFactors) ? result.comparisonBehavior.comparisonFactors : [],
+        decisionTimeline: typeof result?.comparisonBehavior?.decisionTimeline === "string" ? result.comparisonBehavior.decisionTimeline : "",
+      },
+      barriers: Array.isArray(result?.barriers) ? result.barriers : [],
+      conversionDrivers: Array.isArray(result?.conversionDrivers) ? result.conversionDrivers : [],
+      brandLoyaltySignals: Array.isArray(result?.brandLoyaltySignals) ? result.brandLoyaltySignals : [],
+      switchingIntentSignals: Array.isArray(result?.switchingIntentSignals) ? result.switchingIntentSignals : [],
+      feedbackClassification: result?.feedbackClassification && typeof result.feedbackClassification === "object" ? {
+        complaints: Array.isArray(result.feedbackClassification.complaints) ? result.feedbackClassification.complaints : [],
+        recommendations: Array.isArray(result.feedbackClassification.recommendations) ? result.feedbackClassification.recommendations : [],
+        overallRatio: result.feedbackClassification.overallRatio || { complaintsPercent: 0, recommendationsPercent: 0, neutralPercent: 100 },
+      } : undefined,
+    };
+  } catch (error) {
+    console.error("Error synthesizing purchase intent:", error);
+    return {
+      signals: [],
+      comparisonBehavior: {
+        topComparedProducts: [],
+        comparisonFactors: [],
+        decisionTimeline: "",
+      },
+      barriers: [],
+      conversionDrivers: [],
+      brandLoyaltySignals: [],
+      switchingIntentSignals: [],
+    };
+  }
+}
+
+/**
+ * Synthesize competitive positioning from competitor, Amazon, Walmart, and forum data
+ */
+export async function synthesizeCompetitivePositioning(
+  rawData: RawIntelligenceData,
+  context: { brand: Brand; product?: Product | null }
+): Promise<CompetitivePositioning> {
+  const emptyDefaults: CompetitivePositioning = {
+    priceComparison: [],
+    featureComparison: [],
+    reviewComparison: [],
+    marketPosition: { quadrant: "", differentiators: [], vulnerabilities: [] },
+  };
+
+  // Return empty defaults when no product context
+  if (!context.product) {
+    return emptyDefaults;
+  }
+
+  // Focus on platforms with competitive/review data
+  const platformSections = [
+    { key: "competitors", data: rawData.competitors },
+    { key: "amazon", data: rawData.amazon },
+    { key: "walmart", data: rawData.walmart },
+    { key: "forums", data: rawData.forums },
+  ]
+    .map(({ key, data }) => {
+      const scraped = data?.scraped
+        .slice(0, 2)
+        .map((s) => `### ${s.url}\n${truncateContent(s.content, 600)}`)
+        .join("\n\n") || "";
+      return scraped ? `## ${key.charAt(0).toUpperCase() + key.slice(1)} Content:\n${scraped}` : "";
+    })
+    .filter(Boolean)
+    .join("\n\n");
+
+  const prompt = `Analyze competitive positioning for "${context.brand.name}" product "${context.product.name}" in the ${context.brand.industry || "business"} industry.
+Product: ${context.product.name} - ${context.product.short_description || "N/A"} (Price: ${context.product.price ? `$${context.product.price}` : "N/A"})
+
+${platformSections}
+
+Provide a detailed competitive positioning analysis. Return a JSON object with:
+
+1. **priceComparison**: Array of competitor price comparisons, each with:
+   - competitor: Competitor name
+   - price: Price as string (e.g., "$29.99", "Free tier + $49/mo")
+   - pricePosition: "cheaper", "similar", or "premium" relative to our product
+   - valuePerception: How users perceive the value (e.g., "Best value for features offered")
+
+2. **featureComparison**: Array of feature comparisons, each with:
+   - feature: Feature name
+   - ourProduct: How our product handles this feature (string)
+   - competitors: Object mapping competitor name to their capability for this feature
+
+3. **reviewComparison**: Array of competitor review comparisons, each with:
+   - competitor: Competitor name
+   - avgRating: Average rating as number (1-5) or null if unknown
+   - reviewVolume: Description of review volume (e.g., "High - 10,000+ reviews")
+   - topPraise: Array of top things customers praise
+   - topComplaints: Array of top customer complaints
+
+4. **marketPosition**: Object with:
+   - quadrant: Market position description (e.g., "Premium Quality Leader", "Value Innovator")
+   - differentiators: Array of key differentiators for our product
+   - vulnerabilities: Array of competitive vulnerabilities
+
+Return 3-5 competitors in price and review comparisons, 5-8 features in feature comparison.`;
+
+  try {
+    const result = await sendMessageForJSON<CompetitivePositioning>(prompt, {
+      systemPrompt: "You are an expert competitive intelligence analyst specializing in product-level competitive positioning, pricing analysis, and feature benchmarking. Analyze real market data to provide actionable competitive insights. Be data-driven and precise.",
+    });
+
+    return {
+      priceComparison: Array.isArray(result?.priceComparison) ? result.priceComparison : [],
+      featureComparison: Array.isArray(result?.featureComparison) ? result.featureComparison : [],
+      reviewComparison: Array.isArray(result?.reviewComparison) ? result.reviewComparison : [],
+      marketPosition: {
+        quadrant: typeof result?.marketPosition?.quadrant === "string" ? result.marketPosition.quadrant : "",
+        differentiators: Array.isArray(result?.marketPosition?.differentiators) ? result.marketPosition.differentiators : [],
+        vulnerabilities: Array.isArray(result?.marketPosition?.vulnerabilities) ? result.marketPosition.vulnerabilities : [],
+      },
+    };
+  } catch (error) {
+    console.error("Error synthesizing competitive positioning:", error);
+    return emptyDefaults;
+  }
+}
+
+/**
  * Generate content recommendations
  */
 export async function recommendContent(
@@ -667,9 +1390,12 @@ ${audiences.map((a) => `- ${a.name}: ${a.description}`).join("\n")}
 ## Platform Insights:
 ${platforms.map((p) => `- ${p.platform}: ${p.sentiment} sentiment, topics: ${p.keyTopics.join(", ")}`).join("\n")}
 
+## Available Platforms for Targeting:
+Reddit, Amazon, YouTube, Google Reviews, Forums, Walmart, TikTok, Instagram, Twitter/X
+
 ${context.product ? `## Product: ${context.product.name} - ${context.product.short_description}` : ""}
 
-Recommend 5-7 content pieces. For each:
+Recommend 5-7 content pieces targeting platforms from the list above where audience engagement is strongest. For each:
 - type: "image", "video", "carousel", "story", or "text"
 - platform: Target platform
 - headline: Content headline/concept
@@ -706,8 +1432,34 @@ export async function generateExecutiveSummary(
   platformInsights: PlatformInsight[],
   contentRecommendations: ContentRecommendation[],
   personaSuggestions: PersonaSuggestion[],
-  context: { brand: Brand; product?: Product | null }
+  context: { brand: Brand; product?: Product | null },
+  sentimentAnalysis?: SentimentAnalysis,
+  topicClusters?: TopicCluster,
+  purchaseIntentAnalysis?: PurchaseIntentAnalysis,
+  competitivePositioning?: CompetitivePositioning,
+  mediaAffinity?: MediaAffinityReport
 ): Promise<ExecutiveSummary> {
+  // Build optional sections for new analysis data
+  const sentimentSection = sentimentAnalysis?.byPlatform?.length
+    ? `\n## Sentiment Analysis:\n- Overall: ${sentimentAnalysis.overall.label} (${sentimentAnalysis.overall.intensity}), score ${sentimentAnalysis.overall.score.toFixed(2)}\n${sentimentAnalysis.byPlatform.slice(0, 5).map((p) => `- ${p.platform}: ${p.label} (${p.trendDirection})`).join("\n")}`
+    : "";
+
+  const topicsSection = topicClusters?.clusters?.length
+    ? `\n## Top Discussion Topics (${topicClusters.clusters.length}):\n${topicClusters.clusters.slice(0, 4).map((c) => `- ${c.name}: ${c.description} (relevance ${(c.relevanceScore * 100).toFixed(0)}%)`).join("\n")}${topicClusters.emergingTopics?.length ? `\n- Emerging: ${topicClusters.emergingTopics.slice(0, 3).join(", ")}` : ""}`
+    : "";
+
+  const intentSection = purchaseIntentAnalysis?.signals?.length
+    ? `\n## Purchase Intent Signals (${purchaseIntentAnalysis.signals.length}):\n${purchaseIntentAnalysis.signals.slice(0, 4).map((s) => `- ${s.signal} (${s.stage}, ${s.strength})`).join("\n")}${purchaseIntentAnalysis.barriers?.length ? `\n- Top barriers: ${purchaseIntentAnalysis.barriers.slice(0, 2).map((b) => b.barrier).join(", ")}` : ""}`
+    : "";
+
+  const competitiveSection = competitivePositioning?.marketPosition?.quadrant
+    ? `\n## Competitive Position:\n- Market quadrant: ${competitivePositioning.marketPosition.quadrant}\n- Differentiators: ${competitivePositioning.marketPosition.differentiators?.slice(0, 3).join(", ") || "None identified"}\n- Vulnerabilities: ${competitivePositioning.marketPosition.vulnerabilities?.slice(0, 2).join(", ") || "None identified"}`
+    : "";
+
+  const affinitySection = mediaAffinity?.channelRecommendations?.length
+    ? `\n## Media Affinity - Top Channels:\n${mediaAffinity.channelRecommendations.slice(0, 4).map((c) => `- ${c.channel}: ${c.budgetAllocationPercent}% budget (${c.priority})`).join("\n")}`
+    : "";
+
   const prompt = `Generate an executive summary of market intelligence for "${context.brand.name}" (${context.brand.industry || "business"}).
 ${context.product ? `Product: ${context.product.name}` : ""}
 
@@ -725,6 +1477,7 @@ ${platformInsights.slice(0, 5).map((p) => `- ${p.platform}: ${p.sentiment} senti
 
 ## Content Recs (${contentRecommendations.length}):
 ${contentRecommendations.slice(0, 4).map((c) => `- ${c.type} on ${c.platform}: "${c.headline}"`).join("\n")}
+${sentimentSection}${topicsSection}${intentSection}${competitiveSection}${affinitySection}
 
 Return a JSON object with:
 - overview: 2-3 sentence market overview
@@ -779,31 +1532,91 @@ export async function synthesizeFullReport(
 ): Promise<SynthesizedReport> {
   // Run AI calls sequentially to avoid OpenRouter rate limiting
   // and provide steady progress updates during synthesis
+  // Progress: 0% - 100% across 11 sequential calls
 
   onProgress?.("synthesizing", "Analyzing competitors...", 0);
   const competitors = await synthesizeCompetitors(rawData, context);
 
-  onProgress?.("synthesizing", "Analyzing market trends...", 16);
+  onProgress?.("synthesizing", "Analyzing market trends...", 10);
   const trends = await synthesizeTrends(rawData, context);
 
-  onProgress?.("synthesizing", "Analyzing target audience...", 33);
+  onProgress?.("synthesizing", "Analyzing target audience...", 20);
   const audienceSegments = await synthesizeAudience(rawData, context);
 
-  onProgress?.("synthesizing", "Analyzing platform insights...", 50);
+  onProgress?.("synthesizing", "Analyzing platform insights...", 30);
   const platformInsights = await analyzePlatforms(rawData, context);
 
-  onProgress?.("synthesizing", "Generating content recommendations...", 67);
+  onProgress?.("synthesizing", "Analyzing sentiment...", 38);
+  let sentimentAnalysis: SentimentAnalysis;
+  try {
+    sentimentAnalysis = await synthesizeSentiment(rawData, context);
+  } catch (error) {
+    console.error("Error in sentiment analysis (non-fatal):", error);
+    sentimentAnalysis = { overall: { score: 0, label: "neutral", intensity: "mild" }, byPlatform: [], topicSentiment: [] };
+  }
+
+  onProgress?.("synthesizing", "Clustering topics...", 46);
+  let topicClusters: TopicCluster;
+  try {
+    topicClusters = await synthesizeTopicClusters(rawData, context);
+  } catch (error) {
+    console.error("Error in topic clustering (non-fatal):", error);
+    topicClusters = { clusters: [], emergingTopics: [], decliningTopics: [] };
+  }
+
+  onProgress?.("synthesizing", "Analyzing purchase intent...", 54);
+  let purchaseIntentAnalysis: PurchaseIntentAnalysis;
+  try {
+    purchaseIntentAnalysis = await synthesizePurchaseIntent(rawData, context);
+  } catch (error) {
+    console.error("Error in purchase intent analysis (non-fatal):", error);
+    purchaseIntentAnalysis = { signals: [], comparisonBehavior: { topComparedProducts: [], comparisonFactors: [], decisionTimeline: "" }, barriers: [], conversionDrivers: [] };
+  }
+
+  onProgress?.("synthesizing", "Analyzing competitive positioning...", 62);
+  let competitivePositioning: CompetitivePositioning;
+  try {
+    competitivePositioning = await synthesizeCompetitivePositioning(rawData, context);
+  } catch (error) {
+    console.error("Error in competitive positioning (non-fatal):", error);
+    competitivePositioning = { priceComparison: [], featureComparison: [], reviewComparison: [], marketPosition: { quadrant: "", differentiators: [], vulnerabilities: [] } };
+  }
+
+  onProgress?.("synthesizing", "Calculating media affinity...", 70);
+  let mediaAffinity: MediaAffinityReport;
+  try {
+    mediaAffinity = await synthesizeMediaAffinity(rawData, audienceSegments, platformInsights, context);
+  } catch (error) {
+    console.error("Error in media affinity analysis (non-fatal):", error);
+    mediaAffinity = { platformAffinity: [], contentFormatAffinity: [], timeOfDayPatterns: [], influencerAffinity: [], interestCategories: [], channelRecommendations: [] };
+  }
+
+  onProgress?.("synthesizing", "Generating content recommendations...", 80);
   const contentRecommendations = await recommendContent(trends, audienceSegments, platformInsights, context);
 
-  onProgress?.("synthesizing", "Generating executive summary...", 83);
+  onProgress?.("synthesizing", "Generating persona suggestions...", 85);
+  let personaSuggestions: PersonaSuggestion[];
+  try {
+    personaSuggestions = await suggestPersonas(audienceSegments, competitors, context);
+  } catch (error) {
+    console.error("Error generating persona suggestions (non-fatal):", error);
+    personaSuggestions = [];
+  }
+
+  onProgress?.("synthesizing", "Generating executive summary...", 92);
   const executiveSummary = await generateExecutiveSummary(
     competitors,
     trends,
     audienceSegments,
     platformInsights,
     contentRecommendations,
-    [],
-    context
+    personaSuggestions,
+    context,
+    sentimentAnalysis,
+    topicClusters,
+    purchaseIntentAnalysis,
+    competitivePositioning,
+    mediaAffinity
   );
 
   onProgress?.("complete", "Synthesis complete", 100);
@@ -813,8 +1626,13 @@ export async function synthesizeFullReport(
     competitors,
     trends,
     audienceSegments,
-    personaSuggestions: [],
+    personaSuggestions,
     platformInsights,
     contentRecommendations,
+    sentimentAnalysis,
+    topicClusters,
+    purchaseIntentAnalysis,
+    competitivePositioning,
+    mediaAffinity,
   };
 }

@@ -299,6 +299,9 @@ export const demographicsSchema = z.object({
 
   // Ethnicity is optional but should be specific
   ethnicity: z.string().max(100).optional(),
+
+  // Life stage for advertising targeting
+  lifeStage: z.string().max(100).optional(),
 });
 
 // ============================================================================
@@ -581,6 +584,96 @@ export const beliefsAttitudesSchema = z.object({
 }).optional();
 
 // ============================================================================
+// MEDIA PROFILE SCHEMA
+// Platform rankings, daypart recommendations, genre alignment, content formats
+// ============================================================================
+
+export const platformRankingSchema = z.object({
+  platform: z.string(),
+  affinityIndex: z.number(),
+  confidence: z.number().min(0).max(1),
+  reach: z.enum(["high", "medium", "low"]),
+  engagement: z.enum(["high", "medium", "low"]),
+  reasoning: z.string(),
+});
+
+export const daypartRecommendationSchema = z.object({
+  daypart: z.string(),
+  timeRange: z.string(),
+  affinityIndex: z.number(),
+  bestPlatforms: z.array(z.string()),
+  reasoning: z.string(),
+});
+
+export const genreAlignmentSchema = z.object({
+  genre: z.string(),
+  affinityIndex: z.number(),
+  relevance: z.enum(["high", "medium", "low"]),
+  platforms: z.array(z.string()),
+  reasoning: z.string(),
+});
+
+export const contentFormatRankingSchema = z.object({
+  format: z.string(),
+  affinityIndex: z.number(),
+  topPlatforms: z.array(z.string()),
+  reasoning: z.string(),
+});
+
+export const mediaProfileSchema = z.object({
+  platformRankings: z.array(platformRankingSchema),
+  daypartRecommendations: z.array(daypartRecommendationSchema),
+  genreAlignment: z.array(genreAlignmentSchema),
+  contentFormatRankings: z.array(contentFormatRankingSchema),
+}).optional();
+
+// ============================================================================
+// CREATIVE MESSAGING SCHEMA
+// Language profile, messaging themes, proof points, CTA style, visual prefs
+// ============================================================================
+
+export const languageProfileSchema = z.object({
+  tone: z.string(),
+  vocabulary: z.array(z.string()),
+  avoidWords: z.array(z.string()),
+  sentenceStyle: z.string(),
+  readingLevel: z.string(),
+});
+
+export const messagingThemeSchema = z.object({
+  theme: z.string(),
+  relevance: z.enum(["high", "medium", "low"]),
+  messagingAngle: z.string(),
+  sampleHeadlines: z.array(z.string()),
+});
+
+export const proofPointSchema = z.object({
+  type: z.string(),
+  description: z.string(),
+  effectiveness: z.enum(["high", "medium", "low"]),
+  examples: z.array(z.string()),
+});
+
+export const callToActionStyleSchema = z.object({
+  style: z.string(),
+  examples: z.array(z.string()),
+});
+
+export const visualPreferencesSchema = z.object({
+  style: z.string(),
+  colorSensitivity: z.array(z.string()),
+  imageryTypes: z.array(z.string()),
+});
+
+export const creativeMessagingSchema = z.object({
+  languageProfile: languageProfileSchema,
+  messagingThemes: z.array(messagingThemeSchema),
+  proofPoints: z.array(proofPointSchema),
+  callToActionStyle: callToActionStyleSchema,
+  visualPreferences: visualPreferencesSchema,
+}).optional();
+
+// ============================================================================
 // COMBINED PERSONA SCHEMA
 // Full persona with all sections
 // ============================================================================
@@ -620,6 +713,10 @@ export const personaSchema = z.object({
   mediaTech: mediaTechSchema,
   buyingBehavior: buyingBehaviorSchema,
   beliefsAttitudes: beliefsAttitudesSchema,
+
+  // Media & creative advertising data
+  mediaProfile: mediaProfileSchema,
+  creativeMessaging: creativeMessagingSchema,
 
   // Generation metadata
   generationModel: z.string().max(100).default("claude-haiku-4-5"),
@@ -661,6 +758,17 @@ export type Lifestyle = z.infer<typeof lifestyleSchema>;
 export type MediaTech = z.infer<typeof mediaTechSchema>;
 export type BuyingBehavior = z.infer<typeof buyingBehaviorSchema>;
 export type BeliefsAttitudes = z.infer<typeof beliefsAttitudesSchema>;
+export type MediaProfile = z.infer<typeof mediaProfileSchema>;
+export type CreativeMessaging = z.infer<typeof creativeMessagingSchema>;
+export type PlatformRanking = z.infer<typeof platformRankingSchema>;
+export type DaypartRecommendation = z.infer<typeof daypartRecommendationSchema>;
+export type GenreAlignment = z.infer<typeof genreAlignmentSchema>;
+export type ContentFormatRanking = z.infer<typeof contentFormatRankingSchema>;
+export type LanguageProfile = z.infer<typeof languageProfileSchema>;
+export type MessagingTheme = z.infer<typeof messagingThemeSchema>;
+export type ProofPoint = z.infer<typeof proofPointSchema>;
+export type CallToActionStyle = z.infer<typeof callToActionStyleSchema>;
+export type VisualPreferences = z.infer<typeof visualPreferencesSchema>;
 export type PersonaInput = z.infer<typeof personaSchema>;
 export type CreatePersonaInput = z.infer<typeof createPersonaSchema>;
 export type UpdatePersonaInput = z.infer<typeof updatePersonaSchema>;
