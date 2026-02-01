@@ -1020,7 +1020,7 @@ export default function BrandDetailPage() {
       <div className="tab-content">
         {activeTab === "overview" && <OverviewTab brand={brand} />}
         {activeTab === "products" && <ProductsList brandId={brandId} />}
-        {activeTab === "intelligence" && <IntelligenceTab brandId={brandId} />}
+        {activeTab === "intelligence" && <IntelligenceTab brandId={brandId} brandName={brand.name} />}
         {activeTab === "personas" && <PersonasList brandId={brandId} />}
         {activeTab === "audiences" && <AudiencesList brandId={brandId} />}
         {activeTab === "creatives" && <CreativesGallery brandId={brandId} />}

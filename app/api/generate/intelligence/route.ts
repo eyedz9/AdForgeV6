@@ -267,6 +267,11 @@ async function collectionPhase(
     youtube: { searches: [], scraped: [] },
     googleReviews: { searches: [], scraped: [] },
     forums: { searches: [], scraped: [] },
+    // Product research platforms
+    walmart: { searches: [], scraped: [] },
+    tiktok: { searches: [], scraped: [] },
+    instagram: { searches: [], scraped: [] },
+    twitter: { searches: [], scraped: [] },
     metadata: {
       collectedAt: new Date().toISOString(),
       totalSearches,
@@ -471,6 +476,13 @@ export async function POST(request: NextRequest) {
       synthesized_trends: synthesized.trends as unknown as Json,
       synthesized_audience: synthesized.audienceSegments as unknown as Json,
       synthesized_competitors: synthesized.competitors as unknown as Json,
+
+      // Product research analysis fields
+      sentiment_analysis: synthesized.sentimentAnalysis as unknown as Json,
+      topic_clusters: synthesized.topicClusters as unknown as Json,
+      purchase_intent: synthesized.purchaseIntentAnalysis as unknown as Json,
+      competitive_positioning: synthesized.competitivePositioning as unknown as Json,
+      media_affinity: synthesized.mediaAffinity as unknown as Json,
     };
 
     // Save to database

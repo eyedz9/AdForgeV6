@@ -26,6 +26,8 @@ import type {
   MediaTech,
   BuyingBehavior,
   BeliefsAttitudes,
+  MediaProfile,
+  CreativeMessaging,
 } from "@/lib/validations/persona";
 
 // Census validation result shape (from generation_params)
@@ -78,6 +80,8 @@ interface ParsedPersona {
   media_tech: MediaTech | null;
   buying_behavior: BuyingBehavior | null;
   beliefs_attitudes: BeliefsAttitudes | null;
+  media_profile: MediaProfile | null;
+  creative_messaging: CreativeMessaging | null;
   generation_model: string;
   generation_params: Record<string, unknown> | null;
   validation_status: string;
@@ -521,6 +525,36 @@ const CensusIcon = () => (
   </svg>
 );
 
+const MediaAffinityIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <line x1="18" y1="20" x2="18" y2="10" />
+    <line x1="12" y1="20" x2="12" y2="4" />
+    <line x1="6" y1="20" x2="6" y2="14" />
+  </svg>
+);
+
+const DaypartIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <circle cx="12" cy="12" r="10" />
+    <polyline points="12 6 12 12 16 14" />
+  </svg>
+);
+
+const GenreIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <rect x="3" y="3" width="7" height="7" />
+    <rect x="14" y="3" width="7" height="7" />
+    <rect x="14" y="14" width="7" height="7" />
+    <rect x="3" y="14" width="7" height="7" />
+  </svg>
+);
+
+const CreativeMessagingIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+  </svg>
+);
+
 export default function PersonaDetailPage({
   params,
 }: {
@@ -557,6 +591,8 @@ export default function PersonaDetailPage({
       media_tech: raw.media_tech as MediaTech | null,
       buying_behavior: raw.buying_behavior as BuyingBehavior | null,
       beliefs_attitudes: raw.beliefs_attitudes as BeliefsAttitudes | null,
+      media_profile: raw.media_profile as MediaProfile | null,
+      creative_messaging: raw.creative_messaging as CreativeMessaging | null,
       generation_model: raw.generation_model,
       generation_params: raw.generation_params as Record<string, unknown> | null,
       validation_status: raw.validation_status,
@@ -1012,6 +1048,7 @@ export default function PersonaDetailPage({
                 <InfoRow label="Household Size" value={demographics.householdSize ? `${demographics.householdSize} people` : undefined} />
                 <InfoRow label="Annual Income" value={demographics.income ? formatCurrency(demographics.income) : undefined} />
                 <InfoRow label="Ethnicity" value={demographics.ethnicity} />
+                <InfoRow label="Life Stage" value={demographics.lifeStage ? demographics.lifeStage.replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase()) : undefined} />
               </div>
             </CollapsibleSection>
           )}
@@ -1194,6 +1231,271 @@ export default function PersonaDetailPage({
                   value={buying_behavior.averageMonthlySpend !== undefined ? formatCurrency(buying_behavior.averageMonthlySpend) : undefined}
                 />
                 <TagsList label="Purchase Triggers" items={buying_behavior.purchaseTriggers} />
+              </div>
+            </CollapsibleSection>
+          )}
+
+          {/* Media Affinity Rankings Section */}
+          {persona.media_profile && persona.media_profile.platformRankings && persona.media_profile.platformRankings.length > 0 && (
+            <CollapsibleSection title="Media Affinity Rankings" icon={<MediaAffinityIcon />}>
+              <div className="section-data">
+                <p className="affinity-explainer">Index 100 = average. Higher = stronger affinity for this persona.</p>
+                <div className="platform-rankings-table">
+                  <div className="rankings-header">
+                    <span>Platform</span>
+                    <span>Affinity</span>
+                    <span>Confidence</span>
+                    <span>Reach</span>
+                    <span>Engagement</span>
+                  </div>
+                  {persona.media_profile.platformRankings.map((pr, i) => {
+                    const indexColor = pr.affinityIndex > 120
+                      ? "var(--color-plasma-emerald)"
+                      : pr.affinityIndex < 80
+                        ? "var(--color-plasma-rose)"
+                        : "var(--color-text-secondary)";
+                    return (
+                      <div key={i} className="rankings-row">
+                        <span className="platform-name">{pr.platform}</span>
+                        <span className="affinity-index" style={{ color: indexColor, fontWeight: 600 }}>{pr.affinityIndex}</span>
+                        <span className="confidence-bar-cell">
+                          <div className="confidence-bar-track">
+                            <div className="confidence-bar-fill" style={{ width: `${Math.round(pr.confidence * 100)}%` }} />
+                          </div>
+                          <span className="confidence-value">{Math.round(pr.confidence * 100)}%</span>
+                        </span>
+                        <span className={`level-badge level-${pr.reach}`}>{pr.reach}</span>
+                        <span className={`level-badge level-${pr.engagement}`}>{pr.engagement}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </CollapsibleSection>
+          )}
+
+          {/* Daypart Recommendations Section */}
+          {persona.media_profile && persona.media_profile.daypartRecommendations && persona.media_profile.daypartRecommendations.length > 0 && (
+            <CollapsibleSection title="Daypart Recommendations" icon={<DaypartIcon />}>
+              <div className="section-data">
+                <div className="daypart-grid">
+                  {persona.media_profile.daypartRecommendations.map((dp, i) => {
+                    const indexColor = dp.affinityIndex > 120
+                      ? "var(--color-plasma-emerald)"
+                      : dp.affinityIndex < 80
+                        ? "var(--color-plasma-rose)"
+                        : "var(--color-text-secondary)";
+                    return (
+                      <div key={i} className="daypart-card">
+                        <div className="daypart-header">
+                          <span className="daypart-name">{dp.daypart.replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase())}</span>
+                          <span className="daypart-affinity" style={{ color: indexColor }}>{dp.affinityIndex}</span>
+                        </div>
+                        <span className="daypart-time">{dp.timeRange}</span>
+                        <div className="daypart-platforms">
+                          {dp.bestPlatforms.map((p, j) => (
+                            <span key={j} className="tag">{p}</span>
+                          ))}
+                        </div>
+                        <p className="daypart-reasoning">{dp.reasoning}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </CollapsibleSection>
+          )}
+
+          {/* Genre & Content Alignment Section */}
+          {persona.media_profile && (
+            (persona.media_profile.genreAlignment?.length ?? 0) > 0 ||
+            (persona.media_profile.contentFormatRankings?.length ?? 0) > 0
+          ) && (
+            <CollapsibleSection title="Genre & Content Alignment" icon={<GenreIcon />}>
+              <div className="section-data">
+                {persona.media_profile.genreAlignment && persona.media_profile.genreAlignment.length > 0 && (
+                  <>
+                    <span className="subsection-label">Genre Alignment</span>
+                    <div className="genre-cards">
+                      {persona.media_profile.genreAlignment.map((ga, i) => (
+                        <div key={i} className="genre-card">
+                          <div className="genre-header">
+                            <span className="genre-name">{ga.genre}</span>
+                            <span className="genre-affinity" style={{
+                              color: ga.affinityIndex > 120 ? "var(--color-plasma-emerald)"
+                                : ga.affinityIndex < 80 ? "var(--color-plasma-rose)"
+                                : "var(--color-text-secondary)"
+                            }}>{ga.affinityIndex}</span>
+                            <span className={`level-badge level-${ga.relevance}`}>{ga.relevance}</span>
+                          </div>
+                          <div className="genre-platforms">
+                            {ga.platforms.map((p, j) => (
+                              <span key={j} className="tag">{p}</span>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+                {persona.media_profile.contentFormatRankings && persona.media_profile.contentFormatRankings.length > 0 && (
+                  <>
+                    <span className="subsection-label" style={{ marginTop: "1rem" }}>Content Format Rankings</span>
+                    <div className="format-bars">
+                      {persona.media_profile.contentFormatRankings.map((cf, i) => (
+                        <div key={i} className="format-bar-row">
+                          <span className="format-name">{cf.format.replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase())}</span>
+                          <div className="format-bar-track">
+                            <div
+                              className="format-bar-fill"
+                              style={{
+                                width: `${Math.min(100, (cf.affinityIndex / 200) * 100)}%`,
+                                background: cf.affinityIndex > 120
+                                  ? "linear-gradient(90deg, var(--color-plasma-emerald), #059669)"
+                                  : cf.affinityIndex < 80
+                                    ? "linear-gradient(90deg, var(--color-plasma-rose), #be123c)"
+                                    : "linear-gradient(90deg, var(--color-plasma-violet), var(--color-plasma-purple))",
+                              }}
+                            />
+                          </div>
+                          <span className="format-score">{cf.affinityIndex}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            </CollapsibleSection>
+          )}
+
+          {/* Creative Messaging Insights Section */}
+          {persona.creative_messaging && (
+            <CollapsibleSection title="Creative Messaging Insights" icon={<CreativeMessagingIcon />}>
+              <div className="section-data">
+                {/* Language Profile */}
+                {persona.creative_messaging.languageProfile && (
+                  <>
+                    <span className="subsection-label">Language Profile</span>
+                    <div className="language-profile">
+                      <InfoRow label="Tone" value={persona.creative_messaging.languageProfile.tone?.replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase())} />
+                      <InfoRow label="Sentence Style" value={persona.creative_messaging.languageProfile.sentenceStyle?.replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase())} />
+                      <InfoRow label="Reading Level" value={persona.creative_messaging.languageProfile.readingLevel?.replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase())} />
+                      {persona.creative_messaging.languageProfile.vocabulary && persona.creative_messaging.languageProfile.vocabulary.length > 0 && (
+                        <div className="tags-section">
+                          <span className="tags-label">Resonant Words</span>
+                          <div className="tags-list">
+                            {persona.creative_messaging.languageProfile.vocabulary.map((w, i) => (
+                              <span key={i} className="tag">{w}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {persona.creative_messaging.languageProfile.avoidWords && persona.creative_messaging.languageProfile.avoidWords.length > 0 && (
+                        <div className="tags-section">
+                          <span className="tags-label">Words to Avoid</span>
+                          <div className="tags-list">
+                            {persona.creative_messaging.languageProfile.avoidWords.map((w, i) => (
+                              <span key={i} className="tag tag-avoid">{w}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {/* Messaging Themes */}
+                {persona.creative_messaging.messagingThemes && persona.creative_messaging.messagingThemes.length > 0 && (
+                  <>
+                    <span className="subsection-label" style={{ marginTop: "1rem" }}>Messaging Themes</span>
+                    <div className="messaging-themes">
+                      {persona.creative_messaging.messagingThemes.map((mt, i) => (
+                        <div key={i} className="theme-card">
+                          <div className="theme-header">
+                            <span className="theme-name">{mt.theme}</span>
+                            <span className={`level-badge level-${mt.relevance}`}>{mt.relevance}</span>
+                          </div>
+                          <p className="theme-angle">{mt.messagingAngle}</p>
+                          {mt.sampleHeadlines && mt.sampleHeadlines.length > 0 && (
+                            <div className="sample-headlines">
+                              {mt.sampleHeadlines.map((h, j) => (
+                                <p key={j} className="headline-sample">&ldquo;{h}&rdquo;</p>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {/* Proof Points */}
+                {persona.creative_messaging.proofPoints && persona.creative_messaging.proofPoints.length > 0 && (
+                  <>
+                    <span className="subsection-label" style={{ marginTop: "1rem" }}>Proof Points</span>
+                    <div className="proof-points">
+                      {persona.creative_messaging.proofPoints.map((pp, i) => (
+                        <div key={i} className="proof-point-card">
+                          <div className="proof-header">
+                            <span className="proof-type-badge">{pp.type.replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase())}</span>
+                            <span className={`level-badge level-${pp.effectiveness}`}>{pp.effectiveness}</span>
+                          </div>
+                          <p className="proof-description">{pp.description}</p>
+                          {pp.examples && pp.examples.length > 0 && (
+                            <div className="proof-examples">
+                              {pp.examples.map((ex, j) => (
+                                <span key={j} className="proof-example">{ex}</span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {/* CTA Style */}
+                {persona.creative_messaging.callToActionStyle && (
+                  <>
+                    <span className="subsection-label" style={{ marginTop: "1rem" }}>Call to Action Style</span>
+                    <InfoRow label="Style" value={persona.creative_messaging.callToActionStyle.style?.replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase())} />
+                    {persona.creative_messaging.callToActionStyle.examples && persona.creative_messaging.callToActionStyle.examples.length > 0 && (
+                      <div className="cta-examples">
+                        {persona.creative_messaging.callToActionStyle.examples.map((cta, i) => (
+                          <span key={i} className="cta-example">&ldquo;{cta}&rdquo;</span>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Visual Preferences */}
+                {persona.creative_messaging.visualPreferences && (
+                  <>
+                    <span className="subsection-label" style={{ marginTop: "1rem" }}>Visual Preferences</span>
+                    <InfoRow label="Style" value={persona.creative_messaging.visualPreferences.style?.replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase())} />
+                    {persona.creative_messaging.visualPreferences.colorSensitivity && persona.creative_messaging.visualPreferences.colorSensitivity.length > 0 && (
+                      <div className="tags-section">
+                        <span className="tags-label">Color Sensitivity</span>
+                        <div className="tags-list">
+                          {persona.creative_messaging.visualPreferences.colorSensitivity.map((c, i) => (
+                            <span key={i} className="tag">{c}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {persona.creative_messaging.visualPreferences.imageryTypes && persona.creative_messaging.visualPreferences.imageryTypes.length > 0 && (
+                      <div className="tags-section">
+                        <span className="tags-label">Imagery Types</span>
+                        <div className="tags-list">
+                          {persona.creative_messaging.visualPreferences.imageryTypes.map((it, i) => (
+                            <span key={i} className="tag">{it.replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase())}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             </CollapsibleSection>
           )}
@@ -1624,6 +1926,350 @@ export default function PersonaDetailPage({
           border-top-color: var(--color-plasma-violet);
           border-radius: 50%;
           animation: spin 1s linear infinite;
+        }
+
+        /* Affinity explainer */
+        .affinity-explainer {
+          font-size: 0.8125rem;
+          color: var(--color-text-muted);
+          margin: 0 0 1rem;
+          font-style: italic;
+        }
+
+        /* Platform Rankings Table */
+        .platform-rankings-table {
+          display: flex;
+          flex-direction: column;
+          gap: 0;
+        }
+        .rankings-header {
+          display: grid;
+          grid-template-columns: 1.5fr 0.7fr 1.2fr 0.7fr 0.7fr;
+          gap: 0.5rem;
+          padding: 0.5rem 0;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+          font-size: 0.75rem;
+          color: var(--color-text-muted);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+        .rankings-row {
+          display: grid;
+          grid-template-columns: 1.5fr 0.7fr 1.2fr 0.7fr 0.7fr;
+          gap: 0.5rem;
+          padding: 0.625rem 0;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+          align-items: center;
+          font-size: 0.875rem;
+        }
+        .rankings-row:last-child {
+          border-bottom: none;
+        }
+        .platform-name {
+          color: var(--color-text-primary);
+          font-weight: 500;
+        }
+        .confidence-bar-cell {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
+        .confidence-bar-track {
+          flex: 1;
+          height: 6px;
+          background: rgba(255, 255, 255, 0.08);
+          border-radius: 3px;
+          overflow: hidden;
+        }
+        .confidence-bar-fill {
+          height: 100%;
+          background: linear-gradient(90deg, var(--color-plasma-violet), var(--color-plasma-purple));
+          border-radius: 3px;
+          transition: width 0.3s ease;
+        }
+        .confidence-value {
+          font-size: 0.75rem;
+          color: var(--color-text-muted);
+          min-width: 30px;
+        }
+
+        /* Level badges */
+        .level-badge {
+          display: inline-flex;
+          padding: 0.125rem 0.5rem;
+          border-radius: 4px;
+          font-size: 0.75rem;
+          font-weight: 500;
+          text-transform: capitalize;
+        }
+        .level-high {
+          background: rgba(16, 185, 129, 0.15);
+          color: var(--color-plasma-emerald);
+        }
+        .level-medium {
+          background: rgba(245, 158, 11, 0.15);
+          color: #fbbf24;
+        }
+        .level-low {
+          background: rgba(244, 63, 94, 0.15);
+          color: var(--color-plasma-rose);
+        }
+
+        /* Daypart Grid */
+        .daypart-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+          gap: 0.75rem;
+        }
+        .daypart-card {
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 8px;
+          padding: 0.875rem;
+          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .daypart-card:hover {
+          border-color: rgba(255, 255, 255, 0.12);
+          background: rgba(255, 255, 255, 0.05);
+        }
+        .daypart-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 0.25rem;
+        }
+        .daypart-name {
+          font-size: 0.9375rem;
+          font-weight: 600;
+          color: var(--color-text-primary);
+        }
+        .daypart-affinity {
+          font-size: 1rem;
+          font-weight: 700;
+        }
+        .daypart-time {
+          font-size: 0.8125rem;
+          color: var(--color-text-muted);
+          display: block;
+          margin-bottom: 0.5rem;
+        }
+        .daypart-platforms {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.25rem;
+          margin-bottom: 0.5rem;
+        }
+        .daypart-reasoning {
+          font-size: 0.8125rem;
+          color: var(--color-text-secondary);
+          line-height: 1.4;
+          margin: 0;
+        }
+
+        /* Subsection labels */
+        .subsection-label {
+          display: block;
+          font-size: 0.8125rem;
+          font-weight: 600;
+          color: var(--color-text-muted);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          padding-bottom: 0.5rem;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+          margin-bottom: 0.75rem;
+        }
+
+        /* Genre Cards */
+        .genre-cards {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+        .genre-card {
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 8px;
+          padding: 0.75rem;
+          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .genre-card:hover {
+          border-color: rgba(255, 255, 255, 0.12);
+        }
+        .genre-header {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          margin-bottom: 0.5rem;
+        }
+        .genre-name {
+          font-size: 0.9375rem;
+          font-weight: 500;
+          color: var(--color-text-primary);
+          flex: 1;
+        }
+        .genre-affinity {
+          font-size: 0.9375rem;
+          font-weight: 700;
+        }
+        .genre-platforms {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.25rem;
+        }
+
+        /* Content Format Bars */
+        .format-bars {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+        .format-bar-row {
+          display: grid;
+          grid-template-columns: 120px 1fr 40px;
+          gap: 0.75rem;
+          align-items: center;
+        }
+        .format-name {
+          font-size: 0.8125rem;
+          color: var(--color-text-secondary);
+        }
+        .format-bar-track {
+          height: 8px;
+          background: rgba(255, 255, 255, 0.08);
+          border-radius: 4px;
+          overflow: hidden;
+        }
+        .format-bar-fill {
+          height: 100%;
+          border-radius: 4px;
+          transition: width 0.5s ease;
+        }
+        .format-score {
+          font-size: 0.8125rem;
+          font-weight: 600;
+          color: var(--color-text-secondary);
+          text-align: right;
+        }
+
+        /* Creative Messaging */
+        .tag-avoid {
+          background: rgba(244, 63, 94, 0.15) !important;
+          color: var(--color-plasma-rose) !important;
+          border-color: rgba(244, 63, 94, 0.2) !important;
+        }
+
+        /* Messaging Themes */
+        .messaging-themes {
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+        }
+        .theme-card {
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 8px;
+          padding: 0.875rem;
+          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .theme-card:hover {
+          border-color: rgba(255, 255, 255, 0.12);
+        }
+        .theme-header {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          margin-bottom: 0.5rem;
+        }
+        .theme-name {
+          font-size: 0.9375rem;
+          font-weight: 600;
+          color: var(--color-text-primary);
+          flex: 1;
+        }
+        .theme-angle {
+          font-size: 0.875rem;
+          color: var(--color-text-secondary);
+          line-height: 1.5;
+          margin: 0 0 0.5rem;
+        }
+        .sample-headlines {
+          display: flex;
+          flex-direction: column;
+          gap: 0.25rem;
+        }
+        .headline-sample {
+          font-size: 0.8125rem;
+          color: var(--color-plasma-violet);
+          font-style: italic;
+          margin: 0;
+          padding-left: 0.75rem;
+          border-left: 2px solid rgba(139, 92, 246, 0.3);
+        }
+
+        /* Proof Points */
+        .proof-points {
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+        }
+        .proof-point-card {
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 8px;
+          padding: 0.875rem;
+        }
+        .proof-header {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          margin-bottom: 0.5rem;
+        }
+        .proof-type-badge {
+          display: inline-flex;
+          padding: 0.125rem 0.5rem;
+          background: rgba(139, 92, 246, 0.15);
+          color: var(--color-plasma-violet);
+          border-radius: 4px;
+          font-size: 0.75rem;
+          font-weight: 500;
+        }
+        .proof-description {
+          font-size: 0.875rem;
+          color: var(--color-text-secondary);
+          line-height: 1.5;
+          margin: 0 0 0.5rem;
+        }
+        .proof-examples {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.375rem;
+        }
+        .proof-example {
+          display: inline-flex;
+          padding: 0.25rem 0.625rem;
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 6px;
+          font-size: 0.8125rem;
+          color: var(--color-text-secondary);
+        }
+
+        /* CTA Examples */
+        .cta-examples {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.5rem;
+          padding: 0.5rem 0;
+        }
+        .cta-example {
+          display: inline-flex;
+          padding: 0.375rem 0.75rem;
+          background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(139, 92, 246, 0.08));
+          border: 1px solid rgba(139, 92, 246, 0.2);
+          border-radius: 8px;
+          font-size: 0.875rem;
+          color: var(--color-plasma-violet);
+          font-style: italic;
         }
 
         /* Responsive */

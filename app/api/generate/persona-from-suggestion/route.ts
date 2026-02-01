@@ -357,8 +357,86 @@ Return ONLY valid JSON with this exact structure (no markdown, no explanation):
     "currentBrands": [],
     "averageMonthlySpend": 200,
     "purchaseTriggers": ${JSON.stringify(suggestion.purchaseDrivers.slice(0, 5))}
+  },
+  "lifeStage": "young_professional",
+  "mediaProfile": {
+    "platformRankings": [
+      {
+        "platform": "Instagram",
+        "affinityIndex": 135,
+        "confidence": 0.85,
+        "reach": "high",
+        "engagement": "high",
+        "reasoning": "Explain why this persona over-indexes on this platform"
+      }
+    ],
+    "daypartRecommendations": [
+      {
+        "daypart": "evening_prime",
+        "timeRange": "7-10 PM",
+        "affinityIndex": 140,
+        "bestPlatforms": ["Instagram", "TikTok"],
+        "reasoning": "Explain why this daypart is strongest"
+      }
+    ],
+    "genreAlignment": [
+      {
+        "genre": "Health & Wellness",
+        "affinityIndex": 125,
+        "relevance": "high",
+        "platforms": ["Instagram", "YouTube"],
+        "reasoning": "Explain genre relevance"
+      }
+    ],
+    "contentFormatRankings": [
+      {
+        "format": "short_video",
+        "affinityIndex": 145,
+        "topPlatforms": ["TikTok", "Instagram"],
+        "reasoning": "Explain format preference"
+      }
+    ]
+  },
+  "creativeMessaging": {
+    "languageProfile": {
+      "tone": "casual_authentic",
+      "vocabulary": ["resonant", "keywords"],
+      "avoidWords": ["words", "to", "avoid"],
+      "sentenceStyle": "short_punchy",
+      "readingLevel": "casual"
+    },
+    "messagingThemes": [
+      {
+        "theme": "Theme name",
+        "relevance": "high",
+        "messagingAngle": "The angle to take",
+        "sampleHeadlines": ["Headline 1", "Headline 2"]
+      }
+    ],
+    "proofPoints": [
+      {
+        "type": "social_proof",
+        "description": "Description of this proof point",
+        "effectiveness": "high",
+        "examples": ["Example 1"]
+      }
+    ],
+    "callToActionStyle": {
+      "style": "aspiration",
+      "examples": ["CTA example 1", "CTA example 2"]
+    },
+    "visualPreferences": {
+      "style": "authentic_ugc",
+      "colorSensitivity": ["warm tones", "earth tones"],
+      "imageryTypes": ["lifestyle", "real_people"]
+    }
   }
 }
+
+IMPORTANT NOTES FOR NEW FIELDS:
+- "lifeStage": Choose from: "college_student", "young_professional", "new_parent", "established_family", "empty_nester", "retiree", "career_changer", "early_career"
+- "mediaProfile": Generate 4-6 platform rankings with realistic affinity index scores (baseline 100, >100 = over-index, <100 = under-index). Include 4-6 daypart recommendations, 4-6 genre alignments, and 4-6 content format rankings. All affinity indexes should be grounded in the persona's demographics and psychographics.
+- "creativeMessaging": Generate authentic language profile, 3-5 messaging themes with sample headlines, 2-4 proof points, CTA style, and visual preferences. These should be actionable for ad creative teams.
 
 Remember: Return ONLY the JSON object, no other text.`;
 
@@ -366,7 +444,7 @@ Remember: Return ONLY the JSON object, no other text.`;
     let aiResponse: string;
     try {
       aiResponse = await sendMessage(prompt, {
-        maxTokens: 3000,
+        maxTokens: 5000,
         temperature: 0.7,
       });
     } catch (aiError) {
@@ -413,6 +491,7 @@ Remember: Return ONLY the JSON object, no other text.`;
         householdSize: ((generatedData.demographics as Record<string, unknown>)?.householdSize as number) || 2,
         income: parseIncome(suggestion.income),
         ethnicity: ((generatedData.demographics as Record<string, unknown>)?.ethnicity as string) || "",
+        lifeStage: (generatedData.lifeStage as string) || undefined,
       },
       professional: {
         jobTitle: suggestion.occupation,
@@ -469,6 +548,8 @@ Remember: Return ONLY the JSON object, no other text.`;
         averageMonthlySpend: ((generatedData.buyingBehavior as Record<string, unknown>)?.averageMonthlySpend as number) || undefined,
         purchaseTriggers: suggestion.purchaseDrivers.slice(0, 5).length > 0 ? suggestion.purchaseDrivers.slice(0, 5) : undefined,
       },
+      mediaProfile: generatedData.mediaProfile ? (generatedData.mediaProfile as CreatePersonaInput["mediaProfile"]) : undefined,
+      creativeMessaging: generatedData.creativeMessaging ? (generatedData.creativeMessaging as CreatePersonaInput["creativeMessaging"]) : undefined,
       validationStatus: "pending" as const,
       generationModel: "claude-haiku-4-5",
       generationParams: {
@@ -493,7 +574,7 @@ Remember: Return ONLY the JSON object, no other text.`;
       return NextResponse.json({ error: result.error }, { status: 400 });
     }
 
-    // Run census validation in parallel with portrait generation (non-blocking)
+    // Run census validation in parallel with portrait generation (awaited)
     const censusPromise = validateAgainstCensus({
       location: suggestion.location,
       income: parseIncome(suggestion.income),
@@ -501,7 +582,7 @@ Remember: Return ONLY the JSON object, no other text.`;
       education: (generatedData.demographics as Record<string, unknown>)?.education as string | undefined,
       householdSize: (generatedData.demographics as Record<string, unknown>)?.householdSize as number | undefined,
     }).catch((err) => {
-      console.error("Census validation failed (non-blocking):", err);
+      console.error("Census validation failed:", err);
       return null;
     });
 

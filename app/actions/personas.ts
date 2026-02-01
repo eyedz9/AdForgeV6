@@ -173,6 +173,8 @@ export async function createPersona(input: CreatePersonaInput): Promise<PersonaR
       media_tech: (data.mediaTech ?? {}) as Json,
       buying_behavior: (data.buyingBehavior ?? {}) as Json,
       beliefs_attitudes: data.beliefsAttitudes ? (data.beliefsAttitudes as Json) : null,
+      media_profile: data.mediaProfile ? (data.mediaProfile as Json) : null,
+      creative_messaging: data.creativeMessaging ? (data.creativeMessaging as Json) : null,
       generation_model: data.generationModel ?? "claude-haiku-4-5",
       generation_params: (data.generationParams ?? {}) as Json,
       validation_status: data.validationStatus ?? "pending",
@@ -382,6 +384,14 @@ export async function updatePersona(
     if (data.beliefsAttitudes !== undefined)
       updateData.beliefs_attitudes = data.beliefsAttitudes
         ? (data.beliefsAttitudes as Json)
+        : null;
+    if (data.mediaProfile !== undefined)
+      updateData.media_profile = data.mediaProfile
+        ? (data.mediaProfile as Json)
+        : null;
+    if (data.creativeMessaging !== undefined)
+      updateData.creative_messaging = data.creativeMessaging
+        ? (data.creativeMessaging as Json)
         : null;
     if (data.generationModel !== undefined) updateData.generation_model = data.generationModel;
     if (data.generationParams !== undefined)

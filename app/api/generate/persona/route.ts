@@ -18,6 +18,7 @@ import {
 } from "@/lib/api/openrouter";
 import { personaSchema, type PersonaInput } from "@/lib/validations/persona";
 import { checkQuota, decrementQuota } from "@/lib/services/usage";
+import { validateAgainstCensus } from "@/lib/services/census-validator";
 import type {
   Brand,
   Product,
@@ -125,6 +126,8 @@ function personaToInsert(
     media_tech: persona.mediaTech as unknown as Json,
     buying_behavior: persona.buyingBehavior as unknown as Json,
     beliefs_attitudes: persona.beliefsAttitudes as unknown as Json || null,
+    media_profile: persona.mediaProfile as unknown as Json || null,
+    creative_messaging: persona.creativeMessaging as unknown as Json || null,
     generation_model: persona.generationModel || PERSONA_GENERATION_MODEL,
     generation_params: generationParams as unknown as Json,
     validation_status: persona.validationStatus || "pending",
@@ -321,6 +324,37 @@ export async function POST(request: NextRequest) {
       }
 
       const typedPersona = savedPersona as Persona;
+
+      // Run census validation
+      const demographics = typedPersona.demographics as Record<string, unknown>;
+      try {
+        const censusResult = await validateAgainstCensus({
+          location: demographics?.location as string | undefined,
+          income: demographics?.income as number | undefined,
+          age: demographics?.age as number | undefined,
+          education: demographics?.education as string | undefined,
+          householdSize: demographics?.householdSize as number | undefined,
+        });
+
+        // Determine validation status based on realism score
+        const censusRealism = censusResult.locationFound ? (censusResult.realismScore ?? 0) : 0;
+        const autoValidationStatus =
+          censusRealism >= 50 ? "validated" : censusRealism > 0 ? "needs_revision" : "pending";
+
+        // Update persona with census data and validation status
+        const existingParams = (typedPersona.generation_params as Record<string, unknown>) ?? {};
+        await supabase
+          .from("personas")
+          .update({
+            generation_params: { ...existingParams, censusValidation: censusResult } as unknown as Json,
+            validation_status: autoValidationStatus,
+          } as never)
+          .eq("id", typedPersona.id);
+
+        typedPersona.validation_status = autoValidationStatus;
+      } catch (censusErr) {
+        console.error("Census validation failed for persona:", typedPersona.name, censusErr);
+      }
 
       savedPersonas.push({
         id: typedPersona.id,
