@@ -7,7 +7,7 @@
  * POST /api/generate/intelligence/stream
  */
 
-export const maxDuration = 300;
+export const maxDuration = 900; // 15 minutes for Vercel Pro - synthesis can take 6-15 minutes
 
 import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
