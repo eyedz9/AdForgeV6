@@ -1524,86 +1524,102 @@ Return as a JSON object.`;
 
 /**
  * Synthesize complete report from raw data
+ *
+ * Uses parallel batching to reduce total execution time:
+ * - Batch 1: competitors, trends, audience (no dependencies)
+ * - Batch 2: sentiment, topicClusters, purchaseIntent, platforms (raw data only)
+ * - Batch 3: competitivePositioning, mediaAffinity (depend on batch 1)
+ * - Batch 4: contentRecommendations, personaSuggestions (depend on earlier results)
+ * - Final: executiveSummary (depends on all above)
  */
 export async function synthesizeFullReport(
   rawData: RawIntelligenceData,
   context: { brand: Brand; product?: Product | null },
   onProgress?: SynthesisProgressCallback
 ): Promise<SynthesizedReport> {
-  // Run AI calls sequentially to avoid OpenRouter rate limiting
-  // and provide steady progress updates during synthesis
-  // Progress: 0% - 100% across 11 sequential calls
+  // Default values for error cases
+  const defaultSentiment: SentimentAnalysis = { overall: { score: 0, label: "neutral", intensity: "mild" }, byPlatform: [], topicSentiment: [] };
+  const defaultTopics: TopicCluster = { clusters: [], emergingTopics: [], decliningTopics: [] };
+  const defaultIntent: PurchaseIntentAnalysis = { signals: [], comparisonBehavior: { topComparedProducts: [], comparisonFactors: [], decisionTimeline: "" }, barriers: [], conversionDrivers: [] };
+  const defaultPositioning: CompetitivePositioning = { priceComparison: [], featureComparison: [], reviewComparison: [], marketPosition: { quadrant: "", differentiators: [], vulnerabilities: [] } };
+  const defaultAffinity: MediaAffinityReport = { platformAffinity: [], contentFormatAffinity: [], timeOfDayPatterns: [], influencerAffinity: [], interestCategories: [], channelRecommendations: [] };
 
-  onProgress?.("synthesizing", "Analyzing competitors...", 0);
-  const competitors = await synthesizeCompetitors(rawData, context);
+  // ========== BATCH 1: No dependencies (parallel) ==========
+  // These 3 calls can run simultaneously - ~30-60s each, ~60s total in parallel vs ~180s sequential
+  onProgress?.("synthesizing", "Analyzing competitors, trends, and audience...", 0);
 
-  onProgress?.("synthesizing", "Analyzing market trends...", 10);
-  const trends = await synthesizeTrends(rawData, context);
+  const [competitors, trends, audienceSegments] = await Promise.all([
+    synthesizeCompetitors(rawData, context).catch((error) => {
+      console.error("Error synthesizing competitors (non-fatal):", error);
+      return [] as SynthesizedCompetitor[];
+    }),
+    synthesizeTrends(rawData, context).catch((error) => {
+      console.error("Error synthesizing trends (non-fatal):", error);
+      return [] as SynthesizedTrend[];
+    }),
+    synthesizeAudience(rawData, context).catch((error) => {
+      console.error("Error synthesizing audience (non-fatal):", error);
+      return [] as SynthesizedAudienceSegment[];
+    }),
+  ]);
 
-  onProgress?.("synthesizing", "Analyzing target audience...", 20);
-  const audienceSegments = await synthesizeAudience(rawData, context);
+  // ========== BATCH 2: Raw data only dependencies (parallel) ==========
+  // These 4 calls only need rawData, can run in parallel - ~30-60s each, ~60s total in parallel vs ~240s sequential
+  onProgress?.("synthesizing", "Analyzing sentiment, topics, intent, and platforms...", 25);
 
-  onProgress?.("synthesizing", "Analyzing platform insights...", 30);
-  const platformInsights = await analyzePlatforms(rawData, context);
+  const [sentimentAnalysis, topicClusters, purchaseIntentAnalysis, platformInsights] = await Promise.all([
+    synthesizeSentiment(rawData, context).catch((error) => {
+      console.error("Error in sentiment analysis (non-fatal):", error);
+      return defaultSentiment;
+    }),
+    synthesizeTopicClusters(rawData, context).catch((error) => {
+      console.error("Error in topic clustering (non-fatal):", error);
+      return defaultTopics;
+    }),
+    synthesizePurchaseIntent(rawData, context).catch((error) => {
+      console.error("Error in purchase intent analysis (non-fatal):", error);
+      return defaultIntent;
+    }),
+    analyzePlatforms(rawData, context).catch((error) => {
+      console.error("Error analyzing platforms (non-fatal):", error);
+      return [] as PlatformInsight[];
+    }),
+  ]);
 
-  onProgress?.("synthesizing", "Analyzing sentiment...", 38);
-  let sentimentAnalysis: SentimentAnalysis;
-  try {
-    sentimentAnalysis = await synthesizeSentiment(rawData, context);
-  } catch (error) {
-    console.error("Error in sentiment analysis (non-fatal):", error);
-    sentimentAnalysis = { overall: { score: 0, label: "neutral", intensity: "mild" }, byPlatform: [], topicSentiment: [] };
-  }
+  // ========== BATCH 3: Depends on Batch 1 results (parallel) ==========
+  // competitivePositioning needs rawData + context.product
+  // mediaAffinity needs rawData + audienceSegments + platformInsights
+  onProgress?.("synthesizing", "Analyzing competitive positioning and media affinity...", 50);
 
-  onProgress?.("synthesizing", "Clustering topics...", 46);
-  let topicClusters: TopicCluster;
-  try {
-    topicClusters = await synthesizeTopicClusters(rawData, context);
-  } catch (error) {
-    console.error("Error in topic clustering (non-fatal):", error);
-    topicClusters = { clusters: [], emergingTopics: [], decliningTopics: [] };
-  }
+  const [competitivePositioning, mediaAffinity] = await Promise.all([
+    synthesizeCompetitivePositioning(rawData, context).catch((error) => {
+      console.error("Error in competitive positioning (non-fatal):", error);
+      return defaultPositioning;
+    }),
+    synthesizeMediaAffinity(rawData, audienceSegments, platformInsights, context).catch((error) => {
+      console.error("Error in media affinity analysis (non-fatal):", error);
+      return defaultAffinity;
+    }),
+  ]);
 
-  onProgress?.("synthesizing", "Analyzing purchase intent...", 54);
-  let purchaseIntentAnalysis: PurchaseIntentAnalysis;
-  try {
-    purchaseIntentAnalysis = await synthesizePurchaseIntent(rawData, context);
-  } catch (error) {
-    console.error("Error in purchase intent analysis (non-fatal):", error);
-    purchaseIntentAnalysis = { signals: [], comparisonBehavior: { topComparedProducts: [], comparisonFactors: [], decisionTimeline: "" }, barriers: [], conversionDrivers: [] };
-  }
+  // ========== BATCH 4: Depends on multiple earlier results (parallel) ==========
+  // contentRecommendations needs trends + audienceSegments + platformInsights
+  // personaSuggestions needs audienceSegments + competitors
+  onProgress?.("synthesizing", "Generating content recommendations and persona suggestions...", 70);
 
-  onProgress?.("synthesizing", "Analyzing competitive positioning...", 62);
-  let competitivePositioning: CompetitivePositioning;
-  try {
-    competitivePositioning = await synthesizeCompetitivePositioning(rawData, context);
-  } catch (error) {
-    console.error("Error in competitive positioning (non-fatal):", error);
-    competitivePositioning = { priceComparison: [], featureComparison: [], reviewComparison: [], marketPosition: { quadrant: "", differentiators: [], vulnerabilities: [] } };
-  }
+  const [contentRecommendations, personaSuggestions] = await Promise.all([
+    recommendContent(trends, audienceSegments, platformInsights, context).catch((error) => {
+      console.error("Error generating content recommendations (non-fatal):", error);
+      return [] as ContentRecommendation[];
+    }),
+    suggestPersonas(audienceSegments, competitors, context).catch((error) => {
+      console.error("Error generating persona suggestions (non-fatal):", error);
+      return [] as PersonaSuggestion[];
+    }),
+  ]);
 
-  onProgress?.("synthesizing", "Calculating media affinity...", 70);
-  let mediaAffinity: MediaAffinityReport;
-  try {
-    mediaAffinity = await synthesizeMediaAffinity(rawData, audienceSegments, platformInsights, context);
-  } catch (error) {
-    console.error("Error in media affinity analysis (non-fatal):", error);
-    mediaAffinity = { platformAffinity: [], contentFormatAffinity: [], timeOfDayPatterns: [], influencerAffinity: [], interestCategories: [], channelRecommendations: [] };
-  }
-
-  onProgress?.("synthesizing", "Generating content recommendations...", 80);
-  const contentRecommendations = await recommendContent(trends, audienceSegments, platformInsights, context);
-
-  onProgress?.("synthesizing", "Generating persona suggestions...", 85);
-  let personaSuggestions: PersonaSuggestion[];
-  try {
-    personaSuggestions = await suggestPersonas(audienceSegments, competitors, context);
-  } catch (error) {
-    console.error("Error generating persona suggestions (non-fatal):", error);
-    personaSuggestions = [];
-  }
-
-  onProgress?.("synthesizing", "Generating executive summary...", 92);
+  // ========== FINAL: Executive summary depends on everything ==========
+  onProgress?.("synthesizing", "Generating executive summary...", 90);
   const executiveSummary = await generateExecutiveSummary(
     competitors,
     trends,

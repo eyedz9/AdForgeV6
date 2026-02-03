@@ -61,7 +61,7 @@ export async function sendMessage(
 
   // Use OpenRouter's native chat completions API
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 120_000); // 2 minute timeout per call
+  const timeout = setTimeout(() => controller.abort(), 90_000); // 90 second timeout per call - fail faster to allow retries
 
   let response: Response;
   try {
